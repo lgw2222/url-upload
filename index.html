@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pages Launcher</title>
+<style>
+  :root{
+    --ink:#0E1116;
+    --surface:#161B22;
+    --surface-2:#1C222B;
+    --line:#2A313C;
+    --line-soft:#222833;
+    --text:#E7ECF2;
+    --muted:#8C97A6;
+    --faint:#5B6673;
+    --ignite:#FF7A45;
+    --ignite-dim:#5a3320;
+    --live:#3FB950;
+    --link:#5AA9FF;
+    --danger:#F0655B;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(900px 500px at 80% -10%, rgba(255,122,69,0.08), transparent 60%),
+      var(--ink);
+    color:var(--text);
+    font-family:var(--sans);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+  }
+  .wrap{max-width:640px;margin:0 auto;padding:40px 22px 80px;}
+
+  /* Header */
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:6px;}
+  .brand .mark{
+    width:34px;height:34px;border-radius:9px;
+    background:linear-gradient(150deg,var(--ignite),#ff9d6e);
+    display:grid;place-items:center;flex:none;
+    box-shadow:0 0 0 1px rgba(255,122,69,0.25), 0 8px 22px -8px rgba(255,122,69,0.6);
+  }
+  .brand .mark svg{width:18px;height:18px;display:block;}
+  .brand h1{
+    font-family:var(--mono);font-size:18px;font-weight:600;letter-spacing:-0.02em;margin:0;
+  }
+  .tagline{color:var(--muted);font-size:13.5px;margin:0 0 26px 46px;}
+
+  /* Cards */
+  .card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:20px;
+    margin-bottom:16px;
+  }
+  .card.tight{padding:16px 18px;}
+
+  label.field-label{
+    display:block;font-family:var(--mono);font-size:11px;letter-spacing:0.08em;
+    text-transform:uppercase;color:var(--faint);margin-bottom:8px;
+  }
+
+  input[type=text], input[type=password]{
+    width:100%;background:var(--ink);border:1px solid var(--line);
+    color:var(--text);border-radius:9px;padding:11px 13px;
+    font-family:var(--mono);font-size:14px;outline:none;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  input:focus{border-color:var(--ignite);box-shadow:0 0 0 3px rgba(255,122,69,0.14);}
+  input::placeholder{color:var(--faint);}
+
+  .btn{
+    font-family:var(--sans);font-size:14px;font-weight:600;
+    border:none;border-radius:9px;padding:11px 18px;cursor:pointer;
+    transition:transform .06s ease, background .15s, opacity .15s;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn[disabled]{opacity:.45;cursor:not-allowed;}
+  .btn-ignite{
+    background:linear-gradient(150deg,var(--ignite),#ff9152);color:#1a0d05;
+    box-shadow:0 8px 20px -10px rgba(255,122,69,0.8);
+  }
+  .btn-ignite:hover:not([disabled]){background:linear-gradient(150deg,#ff8a5c,#ffa26a);}
+  .btn-ghost{background:var(--surface-2);color:var(--text);border:1px solid var(--line);}
+  .btn-ghost:hover{border-color:var(--faint);}
+  .btn-block{width:100%;padding:14px;font-size:15px;}
+
+  .row{display:flex;gap:10px;align-items:center;}
+  .grow{flex:1;}
+
+  .link{color:var(--link);text-decoration:none;}
+  .link:hover{text-decoration:underline;}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:10px;}
+  .hint a{color:var(--link);text-decoration:none;}
+  .hint a:hover{text-decoration:underline;}
+
+  /* Connected chip */
+  #connected{display:none;}
+  .chip{
+    display:flex;align-items:center;gap:10px;
+    font-family:var(--mono);font-size:13px;
+  }
+  .chip .dot{width:8px;height:8px;border-radius:50%;background:var(--live);
+    box-shadow:0 0 0 3px rgba(63,185,80,0.18);flex:none;}
+  .chip .avatar{width:24px;height:24px;border-radius:50%;background:var(--surface-2);flex:none;}
+  .chip .change{margin-left:auto;color:var(--muted);font-size:12px;background:none;border:none;
+    cursor:pointer;font-family:var(--sans);}
+  .chip .change:hover{color:var(--text);text-decoration:underline;}
+
+  /* Mode tabs */
+  .tabs{display:flex;gap:6px;background:var(--surface);border:1px solid var(--line);
+    border-radius:11px;padding:5px;margin-bottom:16px;}
+  .tab{flex:1;background:none;border:none;color:var(--muted);cursor:pointer;
+    font-family:var(--mono);font-size:13px;padding:9px;border-radius:7px;transition:background .15s,color .15s;}
+  .tab:hover{color:var(--text);}
+  .tab.on{background:var(--surface-2);color:var(--text);}
+
+  /* Repo browser */
+  .repolist{display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto;}
+  .repo-empty{color:var(--muted);font-size:13px;padding:16px 4px;text-align:center;}
+  .repo-row{display:flex;align-items:center;gap:11px;padding:11px 13px;cursor:pointer;
+    background:var(--ink);border:1px solid var(--line-soft);border-radius:9px;transition:border-color .12s,background .12s;}
+  .repo-row:hover{border-color:var(--ignite);background:rgba(255,122,69,0.05);}
+  .repo-row .rname{font-family:var(--mono);font-size:13.5px;color:var(--text);flex:none;}
+  .repo-row .rurl{font-family:var(--mono);font-size:11.5px;color:var(--faint);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .repo-row .rlive{width:7px;height:7px;border-radius:50%;flex:none;}
+  .repo-row .rlive.on{background:var(--live);box-shadow:0 0 0 3px rgba(63,185,80,0.15);}
+  .repo-row .rlive.off{background:var(--faint);}
+  .repo-row .rpriv{font-family:var(--mono);font-size:10px;letter-spacing:0.06em;
+    text-transform:uppercase;color:var(--faint);border:1px solid var(--line);border-radius:5px;padding:1px 6px;flex:none;}
+  .repo-row .rspacer{flex:1;}
+  .repo-row .rgo{color:var(--faint);font-family:var(--mono);font-size:15px;flex:none;}
+
+  input:disabled{opacity:.6;cursor:not-allowed;}
+
+  /* Drop zone */
+  #dropzone{
+    border:1.5px dashed var(--line);border-radius:14px;
+    padding:40px 20px;text-align:center;cursor:pointer;
+    transition:border-color .15s, background .15s;
+    background:var(--surface);
+  }
+  #dropzone:hover{border-color:var(--faint);}
+  #dropzone.drag{border-color:var(--ignite);background:rgba(255,122,69,0.06);}
+  #dropzone .icon{
+    width:44px;height:44px;margin:0 auto 14px;border-radius:11px;
+    background:var(--surface-2);display:grid;place-items:center;color:var(--muted);
+  }
+  #dropzone .big{font-size:15px;font-weight:600;}
+  #dropzone .small{color:var(--muted);font-size:12.5px;margin-top:5px;}
+  #dropzone.disabled{opacity:.4;pointer-events:none;}
+
+  /* Manifest */
+  .manifest{margin-top:14px;display:flex;flex-direction:column;gap:6px;}
+  .mrow{
+    display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12.5px;
+    background:var(--ink);border:1px solid var(--line-soft);border-radius:8px;padding:8px 11px;
+  }
+  .mrow .from{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mrow .arrow{color:var(--faint);flex:none;}
+  .mrow .to{color:var(--text);flex:none;}
+  .mrow .to.index{color:var(--ignite);}
+  .mrow .rm{margin-left:auto;background:none;border:none;color:var(--faint);cursor:pointer;
+    font-size:15px;line-height:1;padding:0 2px;flex:none;}
+  .mrow .rm:hover{color:var(--danger);}
+
+  .warnline{color:#e0a44a;font-size:12.5px;margin-top:10px;display:flex;gap:7px;align-items:flex-start;}
+
+  /* Config after drop */
+  #config{display:none;margin-top:16px;}
+  .toggle{display:flex;gap:8px;background:var(--ink);border:1px solid var(--line);border-radius:9px;padding:4px;}
+  .toggle button{
+    flex:1;background:none;border:none;color:var(--muted);cursor:pointer;
+    font-family:var(--mono);font-size:12.5px;padding:8px;border-radius:6px;
+  }
+  .toggle button.on{background:var(--surface-2);color:var(--text);}
+  .two{display:flex;gap:14px;margin-bottom:16px;}
+  .two > div{flex:1;}
+
+  /* Telemetry rail */
+  #telemetry{display:none;margin-top:18px;}
+  .step{display:flex;gap:13px;align-items:flex-start;padding:9px 0;position:relative;}
+  .step:not(:last-child)::before{
+    content:"";position:absolute;left:9px;top:26px;bottom:-9px;width:2px;background:var(--line);
+  }
+  .step .node{
+    width:20px;height:20px;border-radius:50%;flex:none;margin-top:1px;
+    border:2px solid var(--line);background:var(--ink);
+    display:grid;place-items:center;transition:all .2s;position:relative;z-index:1;
+  }
+  .step .node svg{width:11px;height:11px;opacity:0;transition:opacity .2s;}
+  .step .label{font-family:var(--mono);font-size:13px;color:var(--faint);transition:color .2s;}
+  .step .detail{font-family:var(--mono);font-size:11.5px;color:var(--faint);margin-top:2px;}
+
+  .step.active .node{border-color:var(--ignite);
+    box-shadow:0 0 0 4px rgba(255,122,69,0.14);}
+  .step.active .label{color:var(--text);}
+  .step.active .node::after{
+    content:"";position:absolute;inset:2px;border-radius:50%;
+    border:2px solid transparent;border-top-color:var(--ignite);
+    animation:spin .7s linear infinite;
+  }
+  .step.done .node{border-color:var(--live);background:var(--live);}
+  .step.done .node svg{opacity:1;}
+  .step.done .label{color:var(--text);}
+  .step.error .node{border-color:var(--danger);background:var(--danger);}
+  .step.error .node svg{opacity:1;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* Result */
+  #result{display:none;margin-top:4px;}
+  .live-card{
+    background:linear-gradient(150deg, rgba(63,185,80,0.10), rgba(63,185,80,0.02));
+    border:1px solid rgba(63,185,80,0.4);border-radius:14px;padding:20px;
+  }
+  .live-card .stat{font-family:var(--mono);font-size:11px;letter-spacing:0.08em;
+    text-transform:uppercase;color:var(--live);margin-bottom:10px;display:flex;align-items:center;gap:7px;}
+  .url-box{
+    display:flex;align-items:center;gap:8px;background:var(--ink);
+    border:1px solid var(--line);border-radius:9px;padding:11px 13px;margin-bottom:12px;
+  }
+  .url-box a{font-family:var(--mono);font-size:13.5px;color:var(--text);
+    text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+  .url-box a:hover{color:var(--link);}
+  .icon-btn{background:var(--surface-2);border:1px solid var(--line);color:var(--muted);
+    border-radius:7px;padding:6px 9px;cursor:pointer;font-size:12px;flex:none;font-family:var(--mono);}
+  .icon-btn:hover{color:var(--text);border-color:var(--faint);}
+  .result-links{display:flex;gap:16px;margin-top:14px;flex-wrap:wrap;}
+  .result-links a{font-size:13px;color:var(--muted);text-decoration:none;font-family:var(--mono);}
+  .result-links a:hover{color:var(--link);}
+  .build-note{color:var(--muted);font-size:12px;margin-top:14px;line-height:1.5;}
+
+  .errbox{background:rgba(240,101,91,0.08);border:1px solid rgba(240,101,91,0.35);
+    border-radius:10px;padding:13px 15px;margin-top:14px;font-size:13px;color:#ffbdb6;
+    font-family:var(--mono);line-height:1.5;display:none;white-space:pre-wrap;}
+
+  .footnote{text-align:center;color:var(--faint);font-size:11.5px;margin-top:28px;font-family:var(--mono);}
+
+  /* Firebase panel */
+  .fb{border:1px solid var(--line);border-radius:11px;background:var(--ink);margin-top:16px;overflow:hidden;}
+  .fb-head{width:100%;display:flex;align-items:center;gap:9px;background:none;border:none;cursor:pointer;
+    padding:13px 14px;color:var(--text);font-family:var(--mono);font-size:13px;text-align:left;}
+  .fb-head:hover{background:var(--surface-2);}
+  .fb-ico{font-size:14px;flex:none;}
+  .fb-title{font-weight:600;flex:none;}
+  .fb-optional{font-family:var(--mono);font-size:10px;letter-spacing:0.06em;text-transform:uppercase;
+    color:var(--faint);border:1px solid var(--line);border-radius:5px;padding:1px 6px;flex:none;}
+  .fb-status{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--live);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;}
+  .fb-status.err{color:var(--danger);}
+  .fb-chev{color:var(--faint);transition:transform .15s;font-size:12px;flex:none;}
+  .fb-chev.open{transform:rotate(90deg);}
+  .fb-body{padding:0 14px 14px;}
+  .fb-textarea{width:100%;min-height:118px;resize:vertical;background:var(--ink);border:1px solid var(--line);
+    color:var(--text);border-radius:9px;padding:11px 13px;font-family:var(--mono);font-size:12.5px;line-height:1.5;outline:none;}
+  .fb-textarea:focus{border-color:var(--ignite);box-shadow:0 0 0 3px rgba(255,122,69,0.14);}
+  .fb-note{font-family:var(--mono);font-size:12px;margin-top:9px;min-height:1em;color:var(--muted);}
+  .fb-note.ok{color:var(--live);}
+  .fb-note.err{color:var(--danger);}
+  .fb-actions{display:flex;gap:9px;margin-top:10px;}
+  .fb-small{padding:7px 13px;font-size:12.5px;}
+  .fb-hint{color:var(--muted);font-size:11.5px;margin-top:11px;line-height:1.55;}
+  .fb-hint code{font-family:var(--mono);color:var(--text);}
+  .fb-saved{margin-bottom:14px;}
+  .fb-chips{display:flex;flex-wrap:wrap;gap:7px;}
+  .fb-chip{display:flex;align-items:center;gap:7px;background:var(--ink);border:1px solid var(--line);
+    border-radius:8px;padding:6px 7px 6px 11px;font-family:var(--mono);font-size:12.5px;color:var(--text);
+    cursor:pointer;transition:border-color .12s,background .12s;}
+  .fb-chip:hover{border-color:var(--faint);}
+  .fb-chip.active{border-color:var(--live);background:rgba(63,185,80,0.08);}
+  .fb-chip.active .fb-chipdot{background:var(--live);box-shadow:0 0 0 3px rgba(63,185,80,0.15);}
+  .fb-chipdot{width:7px;height:7px;border-radius:50%;background:var(--faint);flex:none;}
+  .fb-chipx{background:none;border:none;color:var(--faint);cursor:pointer;font-size:15px;line-height:1;padding:0 3px;flex:none;}
+  .fb-chipx:hover{color:var(--danger);}
+  .fb-syncrow{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:14px;
+    border-bottom:1px solid var(--line-soft);}
+  .fb-toggle{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12.5px;color:var(--text);cursor:pointer;}
+  .fb-toggle input{accent-color:var(--ignite);width:15px;height:15px;cursor:pointer;flex:none;}
+  .fb-syncstate{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:170px;}
+  .fb-syncstate.ok{color:var(--live);}
+  .fb-syncstate.err{color:var(--danger);}
+  .fb-refresh{background:var(--surface-2);border:1px solid var(--line);color:var(--muted);border-radius:7px;
+    padding:4px 8px;cursor:pointer;font-size:13px;font-family:var(--mono);flex:none;line-height:1;
+    transition:color .12s,border-color .12s;}
+  .fb-refresh:hover:not(:disabled){color:var(--text);border-color:var(--faint);}
+  .fb-refresh:disabled{opacity:.4;cursor:not-allowed;}
+  .fb-refresh.spin{animation:spin .7s linear infinite;}
+
+  /* Firebase auth box (in the live result) */
+  .fb-authbox{margin-top:16px;padding-top:15px;border-top:1px solid rgba(63,185,80,0.25);}
+  .fb-authtitle{font-family:var(--mono);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;
+    color:var(--live);margin-bottom:7px;}
+  .fb-authsub{color:var(--text);font-size:13px;line-height:1.5;}
+  .fb-authbtn{display:block;text-align:center;text-decoration:none;margin-top:10px;
+    background:var(--surface-2);border:1px solid var(--line);color:var(--text);
+    border-radius:9px;padding:11px;font-family:var(--sans);font-size:14px;font-weight:600;}
+  .fb-authbtn:hover{border-color:var(--faint);}
+  .fb-authnote{color:var(--muted);font-size:11.5px;margin-top:10px;line-height:1.55;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <div class="mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#1a0d05" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4.5 16.5 3 21l4.5-1.5"/><path d="M12 15l-3-3c1.5-5 5-8 10-8 0 5-3 8.5-8 10z"/>
+        <path d="M9 12l-3 1.5M12 15l-1.5 3"/><circle cx="14.5" cy="9.5" r="1.3" fill="#1a0d05" stroke="none"/>
+      </svg>
+    </div>
+    <h1>Pages&nbsp;Launcher</h1>
+  </div>
+  <p class="tagline">Drop an HTML file. Get a live GitHub Pages URL.</p>
+
+  <!-- TOKEN SETUP -->
+  <div class="card" id="setup">
+    <label class="field-label">GitHub access token</label>
+    <div class="row">
+      <div class="grow"><input type="password" id="tokenInput" placeholder="ghp_… or github_pat_…" autocomplete="off" spellcheck="false"></div>
+      <button class="btn btn-ignite" id="connectBtn">Connect</button>
+    </div>
+    <div class="hint">
+      Create one here →
+      <a href="https://github.com/settings/tokens/new?scopes=repo&description=Pages%20Launcher" target="_blank" rel="noopener">github.com/settings/tokens</a>
+      (classic, with the <code style="font-family:var(--mono)">repo</code> scope). Stored only in this browser.
+    </div>
+    <div class="errbox" id="setupErr"></div>
+  </div>
+
+  <!-- CONNECTED CHIP -->
+  <div class="card tight" id="connected">
+    <div class="chip">
+      <span class="dot"></span>
+      <img class="avatar" id="avatar" alt="">
+      <span>Connected as <strong id="ghUser"></strong></span>
+      <button class="change" id="changeBtn">Change token</button>
+    </div>
+  </div>
+
+  <!-- MODE TABS -->
+  <div class="tabs" id="tabs" style="display:none">
+    <button class="tab on" data-mode="new">+ New site</button>
+    <button class="tab" data-mode="update">↻ Update a site</button>
+  </div>
+
+  <!-- UPDATE VIEW: repo browser -->
+  <div id="updateView" style="display:none">
+    <div class="card">
+      <div class="row" style="margin-bottom:12px">
+        <div class="grow"><input type="text" id="repoSearch" placeholder="Search your sites…" autocomplete="off" spellcheck="false"></div>
+        <button class="btn btn-ghost" id="refreshRepos">Refresh</button>
+      </div>
+      <div id="repoList" class="repolist"><div class="repo-empty">Loading your repositories…</div></div>
+    </div>
+  </div>
+
+  <!-- TARGET BANNER (update mode, after a repo is picked) -->
+  <div class="card tight" id="targetBanner" style="display:none">
+    <div class="chip">
+      <span class="dot" style="background:var(--ignite);box-shadow:0 0 0 3px rgba(255,122,69,0.18)"></span>
+      <span>Updating <strong id="targetName" style="font-family:var(--mono)"></strong></span>
+      <button class="change" id="pickAnother">Pick another</button>
+    </div>
+  </div>
+
+  <!-- DROP ZONE -->
+  <div id="dropzone" class="disabled">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 15V3m0 0-4 4m4-4 4 4"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/>
+      </svg>
+    </div>
+    <div class="big">Drop your HTML file here</div>
+    <div class="small">or click to browse · single file becomes <code style="font-family:var(--mono)">index.html</code></div>
+    <input type="file" id="fileInput" multiple style="display:none">
+  </div>
+
+  <!-- MANIFEST + CONFIG -->
+  <div id="config">
+    <div class="card">
+      <label class="field-label">Files to deploy</label>
+      <div class="manifest" id="manifest"></div>
+      <div class="warnline" id="manifestWarn" style="display:none"></div>
+
+      <!-- FIREBASE (optional) -->
+      <div class="fb" id="fbPanel">
+        <button type="button" class="fb-head" id="fbToggle">
+          <span class="fb-ico">🔥</span>
+          <span class="fb-title">Firebase</span>
+          <span class="fb-optional">optional</span>
+          <span class="fb-status" id="fbStatus">not linked</span>
+          <span class="fb-chev" id="fbChev">▸</span>
+        </button>
+        <div class="fb-body" id="fbBody" style="display:none">
+          <div class="fb-syncrow">
+            <label class="fb-toggle"><input type="checkbox" id="fbSyncChk"> Sync across my devices</label>
+            <span class="fb-syncstate" id="fbSyncState">off</span>
+            <button type="button" class="fb-refresh" id="fbRefresh" title="Pull latest from GitHub">↻</button>
+          </div>
+          <div class="fb-saved" id="fbSaved" style="display:none">
+            <label class="field-label">Your projects · tap to link</label>
+            <div class="fb-chips" id="fbChips"></div>
+          </div>
+          <label class="field-label">Add a project — paste its config</label>
+          <textarea id="fbInput" class="fb-textarea" spellcheck="false"
+            placeholder="Paste the firebaseConfig object — or the whole &quot;Add Firebase SDK&quot; snippet from the Firebase console. I'll pull out the config and save it as a chip above."></textarea>
+          <div class="fb-note" id="fbNote"></div>
+          <div class="fb-actions">
+            <a class="btn btn-ghost fb-small" id="fbGet" href="https://console.firebase.google.com/project/_/settings/general" target="_blank" rel="noopener" style="text-decoration:none">Get config from Firebase ↗</a>
+            <button type="button" class="btn btn-ghost fb-small" id="fbClear">Unlink</button>
+          </div>
+          <div class="fb-hint">On launch this gets wired into your HTML — it replaces an existing <code>firebaseConfig</code>, fills a <code>/* FIREBASE_CONFIG */</code> placeholder, or adds <code>window.firebaseConfig</code> to the page. Saved in this browser only.</div>
+        </div>
+      </div>
+
+      <div style="height:18px"></div>
+      <div class="two">
+        <div>
+          <label class="field-label">Repository name</label>
+          <input type="text" id="repoName" spellcheck="false" autocomplete="off">
+        </div>
+        <div id="visBlock">
+          <label class="field-label">Visibility</label>
+          <div class="toggle">
+            <button id="visPublic" class="on" data-vis="public">Public</button>
+            <button id="visPrivate" data-vis="private">Private</button>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-ignite btn-block" id="launchBtn">Launch to Pages</button>
+      <div class="hint" id="visHint" style="display:none">Private Pages needs a GitHub Pro account.</div>
+
+      <!-- TELEMETRY -->
+      <div id="telemetry">
+        <div class="step" data-step="repo">
+          <div class="node"><svg viewBox="0 0 24 24" fill="none" stroke="#0E1116" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg></div>
+          <div><div class="label">Create repository</div><div class="detail" data-detail="repo"></div></div>
+        </div>
+        <div class="step" data-step="upload">
+          <div class="node"><svg viewBox="0 0 24 24" fill="none" stroke="#0E1116" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg></div>
+          <div><div class="label">Upload files</div><div class="detail" data-detail="upload"></div></div>
+        </div>
+        <div class="step" data-step="pages">
+          <div class="node"><svg viewBox="0 0 24 24" fill="none" stroke="#0E1116" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg></div>
+          <div><div class="label">Enable GitHub Pages</div><div class="detail" data-detail="pages"></div></div>
+        </div>
+        <div class="step" data-step="live">
+          <div class="node"><svg viewBox="0 0 24 24" fill="none" stroke="#0E1116" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg></div>
+          <div><div class="label">Liftoff</div><div class="detail" data-detail="live"></div></div>
+        </div>
+      </div>
+      <div class="errbox" id="launchErr"></div>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div id="result">
+    <div class="live-card">
+      <div class="stat"><span class="dot" style="width:8px;height:8px;border-radius:50%;background:var(--live);display:inline-block"></span> Live</div>
+      <div class="url-box">
+        <a id="liveUrl" href="#" target="_blank" rel="noopener"></a>
+        <button class="icon-btn" id="copyBtn">Copy</button>
+        <button class="icon-btn" id="openBtn">Open</button>
+      </div>
+      <div class="result-links">
+        <a id="repoLink" href="#" target="_blank" rel="noopener">↗ Repository</a>
+        <a id="settingsLink" href="#" target="_blank" rel="noopener">↗ Pages settings</a>
+      </div>
+
+      <!-- Firebase auth helper (shown only when a config was injected) -->
+      <div class="fb-authbox" id="fbAuthBox" style="display:none">
+        <div class="fb-authtitle">🔥 Firebase login on this app?</div>
+        <div class="fb-authsub">If it uses Firebase sign-in, authorize this domain or logins get blocked:</div>
+        <div class="url-box" style="margin-top:9px">
+          <span id="fbDomain" style="font-family:var(--mono);font-size:13.5px;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+          <button class="icon-btn" id="fbDomainCopy">Copy</button>
+        </div>
+        <a id="fbAuthLink" class="fb-authbtn" href="#" target="_blank" rel="noopener">↗ Open Firebase Auth settings</a>
+        <div class="fb-authnote" id="fbAuthNote"></div>
+      </div>
+
+      <div class="build-note">First build takes ~30–60 seconds. If the page 404s, give it a minute and refresh.</div>
+    </div>
+    <button class="btn btn-ghost btn-block" id="againBtn" style="margin-top:14px">Deploy another</button>
+  </div>
+
+  <div class="footnote">runs entirely in your browser · no server</div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const API = "https://api.github.com";
+
+  // ---- tiny storage wrapper (survives artifact preview where localStorage throws) ----
+  let mem = {};
+  const store = {
+    get(k){ try{ return localStorage.getItem(k); }catch(e){ return mem[k] ?? null; } },
+    set(k,v){ try{ localStorage.setItem(k,v); }catch(e){ mem[k]=v; } },
+    del(k){ try{ localStorage.removeItem(k); }catch(e){ delete mem[k]; } }
+  };
+
+  const $ = s => document.querySelector(s);
+  let token = null;
+  let user = null;
+  let visibility = "public";
+  let files = [];      // {file, name, target}
+  let busy = false;
+  let mode = "new";        // "new" (create) | "update" (existing repo)
+  let targetRepo = null;   // repo name chosen in update mode
+  let repoCache = null;    // cached list of the user's repos
+  let fbConfig = null;     // parsed Firebase config object, or null
+  let lastFbProject = null;// projectId actually injected on the last deploy, or null
+
+  // ---------- GitHub API helper ----------
+  async function gh(path, opts={}){
+    const res = await fetch(API + path, {
+      ...opts,
+      headers: {
+        "Authorization": "Bearer " + token,
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        ...(opts.headers||{})
+      }
+    });
+    return res;
+  }
+
+  // robust base64 for any bytes (text or binary), chunked to avoid stack overflow
+  function fileToBase64(file){
+    return new Promise((resolve, reject)=>{
+      const r = new FileReader();
+      r.onload = () => {
+        try{
+          const bytes = new Uint8Array(r.result);
+          let bin = ""; const CH = 0x8000;
+          for(let i=0;i<bytes.length;i+=CH){
+            bin += String.fromCharCode.apply(null, bytes.subarray(i, i+CH));
+          }
+          resolve(btoa(bin));
+        }catch(e){ reject(e); }
+      };
+      r.onerror = () => reject(new Error("Could not read file"));
+      r.readAsArrayBuffer(file);
+    });
+  }
+
+  function fileToText(file){
+    return new Promise((resolve, reject)=>{
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = () => reject(new Error("Could not read file"));
+      r.readAsText(file);
+    });
+  }
+
+  // UTF-8 → base64 (chunked), for HTML we've modified in-memory
+  function utf8ToBase64(str){
+    const bytes = new TextEncoder().encode(str);
+    let bin = ""; const CH = 0x8000;
+    for(let i=0;i<bytes.length;i+=CH){
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i+CH));
+    }
+    return btoa(bin);
+  }
+
+  // base64 (GitHub contents, may contain newlines) → UTF-8 string
+  function b64ToUtf8(b64){
+    const bin = atob((b64||"").replace(/\s/g,""));
+    const bytes = new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }
+
+  const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+  // ---------- Firebase config: parse + inject ----------
+  // Pull a config object out of whatever the user pasted (bare object, a full
+  // "const firebaseConfig = {…}" line, or the entire SDK snippet).
+  function parseFirebaseConfig(raw){
+    raw = (raw||"").trim();
+    if(!raw) return null;
+    let objText = null;
+    const named = raw.match(/firebaseConfig\s*=\s*(\{[\s\S]*?\})/);
+    if(named){ objText = named[1]; }
+    else { const flat = raw.match(/\{[^{}]*\}/); if(flat) objText = flat[0]; }
+    if(!objText) throw new Error("Couldn't find a { … } config in there.");
+
+    let cfg;
+    try{ cfg = JSON.parse(objText); }
+    catch(e){
+      // tolerant pass: quote bare keys, single→double quotes, drop trailing commas
+      const fixed = objText
+        .replace(/([{,]\s*)([A-Za-z_$][\w$]*)\s*:/g, '$1"$2":')
+        .replace(/'/g, '"')
+        .replace(/,\s*([}\]])/g, '$1');
+      try{ cfg = JSON.parse(fixed); }
+      catch(e2){ throw new Error("That config didn't parse. Copy it straight from the Firebase console."); }
+    }
+    if(!cfg || typeof cfg !== "object" || !cfg.apiKey){
+      throw new Error("That doesn't look like a Firebase config (no apiKey).");
+    }
+    return cfg;
+  }
+
+  // Wire the config into a page's HTML. Returns { html, how }.
+  function injectFirebaseConfig(htmlText, cfgObj){
+    const json = JSON.stringify(cfgObj, null, 2);
+    // 1) replace any existing firebaseConfig / window.firebaseConfig assignment
+    const assignRe = /((?:const|let|var)\s+firebaseConfig\s*=\s*|window\.firebaseConfig\s*=\s*)\{[^{}]*\}/g;
+    if(assignRe.test(htmlText)){
+      return { html: htmlText.replace(assignRe, (m,p1)=> p1 + json), how:"replaced existing config" };
+    }
+    // 2) fill a placeholder token
+    const placeholderRe = /\/\*\s*FIREBASE_CONFIG\s*\*\/|__FIREBASE_CONFIG__/g;
+    if(placeholderRe.test(htmlText)){
+      return { html: htmlText.replace(placeholderRe, json), how:"filled placeholder" };
+    }
+    // 3) inject window.firebaseConfig into the page
+    const tag = '\n  <scr'+'ipt>window.firebaseConfig = '+json+';</scr'+'ipt>';
+    if(/<\/head>/i.test(htmlText)) return { html: htmlText.replace(/<\/head>/i, tag+'\n</head>'), how:"added to <head>" };
+    if(/<body[^>]*>/i.test(htmlText)) return { html: htmlText.replace(/(<body[^>]*>)/i, '$1'+tag), how:"added after <body>" };
+    return { html: tag+'\n'+htmlText, how:"prepended to page" };
+  }
+
+  // ---------- Connect ----------
+  async function connect(tok){
+    $("#setupErr").style.display = "none";
+    const res = await fetch(API + "/user", {
+      headers:{ "Authorization":"Bearer "+tok, "Accept":"application/vnd.github+json" }
+    });
+    if(res.status === 401) throw new Error("That token was rejected. Check it's correct and hasn't expired.");
+    if(!res.ok) throw new Error("Couldn't reach GitHub (" + res.status + "). Try again.");
+    const me = await res.json();
+    token = tok; user = me.login;
+    store.set("pl_token", tok);
+    $("#ghUser").textContent = "@" + me.login;
+    if(me.avatar_url) $("#avatar").src = me.avatar_url;
+    $("#setup").style.display = "none";
+    $("#connected").style.display = "block";
+    $("#dropzone").classList.remove("disabled");
+    $("#tabs").style.display = "flex";
+    setMode("new");
+    if(syncEnabled) pullSync();
+  }
+
+  $("#connectBtn").addEventListener("click", async ()=>{
+    const tok = $("#tokenInput").value.trim();
+    if(!tok){ showSetupErr("Paste a token first."); return; }
+    $("#connectBtn").disabled = true; $("#connectBtn").textContent = "Checking…";
+    try{ await connect(tok); }
+    catch(e){ showSetupErr(e.message); }
+    finally{ $("#connectBtn").disabled = false; $("#connectBtn").textContent = "Connect"; }
+  });
+  $("#tokenInput").addEventListener("keydown", e=>{ if(e.key==="Enter") $("#connectBtn").click(); });
+
+  function showSetupErr(m){ const b=$("#setupErr"); b.textContent=m; b.style.display="block"; }
+
+  $("#changeBtn").addEventListener("click", ()=>{
+    store.del("pl_token"); token=null; user=null; repoCache=null;
+    syncSha=null;
+    if($("#fbSyncState")) setSyncState(syncEnabled ? "connect GitHub to sync" : "off");
+    $("#connected").style.display="none";
+    $("#tabs").style.display="none";
+    $("#updateView").style.display="none";
+    $("#targetBanner").style.display="none";
+    $("#setup").style.display="block";
+    $("#dropzone").classList.add("disabled");
+    resetConfig();
+    $("#tokenInput").value="";
+  });
+
+  // ---------- Mode switching (New site vs Update a site) ----------
+  document.querySelectorAll(".tab").forEach(t=>{
+    t.addEventListener("click", ()=> setMode(t.dataset.mode));
+  });
+
+  function setMode(m){
+    mode = m; targetRepo = null;
+    document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on", t.dataset.mode===m));
+    resetConfig();
+    $("#result").style.display = "none";
+    $("#targetBanner").style.display = "none";
+    if(m === "new"){
+      $("#updateView").style.display = "none";
+      $("#dropzone").style.display = "block";
+      $("#dropzone").classList.remove("disabled");
+      $("#visBlock").style.display = "";
+      $("#repoName").disabled = false;
+      $("#launchBtn").textContent = "Launch to Pages";
+    } else {
+      // update mode: hide the dropzone until a repo is picked, show the browser
+      $("#dropzone").style.display = "none";
+      $("#updateView").style.display = "block";
+      $("#launchBtn").textContent = "Update site";
+      loadRepos();
+    }
+  }
+
+  // ---------- Repo browser (update mode) ----------
+  async function loadRepos(force){
+    const list = $("#repoList");
+    if(repoCache && !force){ renderRepoList(repoCache); return; }
+    list.innerHTML = '<div class="repo-empty">Loading your repositories…</div>';
+    try{
+      let all = [], page = 1;
+      while(page <= 5){
+        const res = await gh("/user/repos?per_page=100&affiliation=owner&sort=updated&page="+page);
+        if(!res.ok) throw await ghError(res, "load your repositories");
+        const batch = await res.json();
+        all = all.concat(batch);
+        if(batch.length < 100) break;
+        page++;
+      }
+      repoCache = all;
+      renderRepoList(all);
+    }catch(e){
+      list.innerHTML = '<div class="repo-empty">'+escapeHtml(e.message||"Couldn't load repositories.")+'</div>';
+    }
+  }
+
+  function renderRepoList(repos){
+    const q = ($("#repoSearch").value||"").trim().toLowerCase();
+    const filtered = repos.filter(r=> !q || r.name.toLowerCase().includes(q));
+    // Pages-enabled sites first, then by most recently updated (API already sorts by updated)
+    filtered.sort((a,b)=> (b.has_pages?1:0) - (a.has_pages?1:0));
+    const list = $("#repoList");
+    if(!filtered.length){ list.innerHTML = '<div class="repo-empty">No repositories match that.</div>'; return; }
+    list.innerHTML = "";
+    filtered.forEach(r=>{
+      const url = "https://"+user+".github.io/"+r.name+"/";
+      const row = document.createElement("div");
+      row.className = "repo-row";
+      row.innerHTML =
+        '<span class="rlive '+(r.has_pages?"on":"off")+'" title="'+(r.has_pages?"Pages live":"No Pages yet")+'"></span>' +
+        '<span class="rname">'+escapeHtml(r.name)+'</span>' +
+        (r.private ? '<span class="rpriv">private</span>' : '') +
+        '<span class="rspacer"></span>' +
+        (r.has_pages ? '<span class="rurl">'+escapeHtml(url)+'</span>' : '<span class="rurl">not a site yet</span>') +
+        '<span class="rgo">→</span>';
+      row.addEventListener("click", ()=> selectRepo(r));
+      list.appendChild(row);
+    });
+  }
+
+  $("#repoSearch").addEventListener("input", ()=>{ if(repoCache) renderRepoList(repoCache); });
+  $("#refreshRepos").addEventListener("click", ()=> loadRepos(true));
+
+  function selectRepo(r){
+    targetRepo = r.name;
+    $("#updateView").style.display = "none";
+    $("#targetBanner").style.display = "block";
+    $("#targetName").textContent = user + "/" + r.name;
+    // lock the repo name to the chosen repo; visibility is irrelevant for an existing repo
+    $("#repoName").value = r.name;
+    $("#repoName").disabled = true;
+    $("#visBlock").style.display = "none";
+    $("#dropzone").style.display = "block";
+    $("#dropzone").classList.remove("disabled");
+    $("#config").style.display = "none";
+    $("#result").style.display = "none";
+    $("#dropzone").scrollIntoView({behavior:"smooth", block:"center"});
+  }
+
+  $("#pickAnother").addEventListener("click", ()=>{
+    targetRepo = null;
+    resetConfig();
+    $("#targetBanner").style.display = "none";
+    $("#dropzone").style.display = "none";
+    $("#result").style.display = "none";
+    $("#updateView").style.display = "block";
+    $("#repoName").disabled = false;
+  });
+
+  // ---------- File intake ----------
+  const dz = $("#dropzone");
+  dz.addEventListener("click", ()=>{ if(!dz.classList.contains("disabled")) $("#fileInput").click(); });
+  $("#fileInput").addEventListener("change", e=> intake([...e.target.files]));
+  ["dragover","dragenter"].forEach(ev=>dz.addEventListener(ev, e=>{ e.preventDefault(); if(!dz.classList.contains("disabled")) dz.classList.add("drag"); }));
+  ["dragleave","dragend"].forEach(ev=>dz.addEventListener(ev, ()=>dz.classList.remove("drag")));
+  dz.addEventListener("drop", e=>{
+    e.preventDefault(); dz.classList.remove("drag");
+    if(dz.classList.contains("disabled")) return;
+    intake([...e.dataTransfer.files]);
+  });
+
+  const isHtml = n => /\.(html?|htm)$/i.test(n);
+
+  function computeTargets(list){
+    const hasIndex = list.some(f => f.name.toLowerCase() === "index.html");
+    const htmls = list.filter(f => isHtml(f.name));
+    return list.map(f=>{
+      let target = f.name;
+      if(!hasIndex && htmls.length === 1 && isHtml(f.name)) target = "index.html";
+      return { file:f, name:f.name, target };
+    });
+  }
+
+  function intake(list){
+    if(!list.length) return;
+    files = computeTargets(list);
+    if(mode === "update"){
+      // updating an existing site: a lone HTML always overwrites index.html,
+      // and the repo name stays locked to the chosen repo.
+      if(files.length === 1 && isHtml(files[0].name)) files[0].target = "index.html";
+      $("#repoName").value = targetRepo;
+    } else {
+      // new site: suggest a repo name from the primary html (or first file)
+      const primary = files.find(f=>f.target==="index.html") || files[0];
+      const base = (primary.name || "site").replace(/\.[^.]+$/,"");
+      $("#repoName").value = slug(base);
+    }
+    renderManifest();
+    $("#config").style.display = "block";
+    $("#telemetry").style.display = "none";
+    $("#result").style.display = "none";
+    $("#launchErr").style.display = "none";
+    resetSteps();
+    $("#config").scrollIntoView({behavior:"smooth", block:"nearest"});
+  }
+
+  function slug(s){
+    return s.trim().toLowerCase()
+      .replace(/[^a-z0-9._-]+/g,"-")
+      .replace(/^-+|-+$/g,"")
+      .replace(/-{2,}/g,"-") || "my-site";
+  }
+
+  function renderManifest(){
+    const m = $("#manifest"); m.innerHTML="";
+    files.forEach((f,i)=>{
+      const renamed = f.target !== f.name;
+      const row = document.createElement("div");
+      row.className="mrow";
+      row.innerHTML =
+        '<span class="from">'+escapeHtml(f.name)+'</span>' +
+        (renamed ? '<span class="arrow">→</span><span class="to index">'+escapeHtml(f.target)+'</span>'
+                 : '<span class="to">'+escapeHtml(f.target)+'</span>') +
+        '<button class="rm" title="Remove">×</button>';
+      row.querySelector(".rm").addEventListener("click", ()=>{
+        files.splice(i,1);
+        if(!files.length){ resetConfig(); return; }
+        files = computeTargets(files.map(x=>x.file));
+        renderManifest();
+      });
+      m.appendChild(row);
+    });
+    // warning if no index.html target present
+    const hasIndexTarget = files.some(f=>f.target.toLowerCase()==="index.html");
+    const warn = $("#manifestWarn");
+    if(!hasIndexTarget){
+      warn.style.display="flex";
+      warn.innerHTML = '<span>⚠</span><span>No <b>index.html</b> here, so the site root won\'t show a landing page. Rename one of these to index.html, or drop a single HTML file and I\'ll rename it automatically.</span>';
+    } else warn.style.display="none";
+  }
+
+  function escapeHtml(s){ return s.replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+  // ---------- visibility toggle ----------
+  document.querySelectorAll(".toggle button").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      document.querySelectorAll(".toggle button").forEach(x=>x.classList.remove("on"));
+      b.classList.add("on");
+      visibility = b.dataset.vis;
+      $("#visHint").style.display = visibility==="private" ? "block" : "none";
+    });
+  });
+
+  // ---------- Firebase panel wiring ----------
+  const fbToggle = $("#fbToggle"), fbBody = $("#fbBody"), fbChev = $("#fbChev"),
+        fbInput = $("#fbInput"), fbNote = $("#fbNote"), fbStatus = $("#fbStatus");
+  let fbProjects = {};   // { key: rawConfigText }  (working map used everywhere)
+  let fbTs = {};         // { key: lastEditTimestamp }
+  let fbDel = {};        // { key: deleteTimestamp } tombstones, so deletions sync
+  let fbActive = null;   // key of the currently linked project
+
+  const SYNC_REPO = "pages-launcher-sync", SYNC_FILE = "projects.json";
+  let syncSha = null, syncBusy = false;
+  let syncEnabled = store.get("pl_sync") !== "0"; // default on
+
+  const fbKey = cfg => cfg.projectId || cfg.authDomain || ("app-" + String(cfg.apiKey||"").slice(-6));
+  const fbLabel = cfg => cfg.projectId || cfg.authDomain || "app";
+
+  // ---- doc model (what we persist + sync): {projects:{k:{raw,ts}}, deleted:{k:ts}} ----
+  const emptyDoc = () => ({ projects:{}, deleted:{} });
+  function buildDoc(){
+    const projects = {};
+    Object.keys(fbProjects).forEach(k=> projects[k] = { raw:fbProjects[k], ts:fbTs[k]||0 });
+    const deleted = {};
+    Object.keys(fbDel).forEach(k=> deleted[k] = fbDel[k]);
+    return { projects, deleted };
+  }
+  function applyDoc(doc){
+    fbProjects = {}; fbTs = {}; fbDel = {};
+    const P = doc.projects||{}, D = doc.deleted||{};
+    Object.keys(P).forEach(k=>{ fbProjects[k] = P[k].raw; fbTs[k] = P[k].ts||0; });
+    Object.keys(D).forEach(k=>{ fbDel[k] = D[k]; });
+  }
+  // last-write-wins merge across two docs, honoring tombstones
+  function mergeDocs(a, b){
+    a = a||emptyDoc(); b = b||emptyDoc();
+    const keys = new Set([].concat(
+      Object.keys(a.projects||{}), Object.keys(b.projects||{}),
+      Object.keys(a.deleted||{}), Object.keys(b.deleted||{})
+    ));
+    const out = emptyDoc();
+    keys.forEach(k=>{
+      const pa = (a.projects||{})[k], pb = (b.projects||{})[k];
+      const live = pa && (!pb || (pa.ts||0) >= (pb.ts||0)) ? pa : pb;
+      const liveTs = live ? (live.ts||0) : -1;
+      const delTs = Math.max(
+        (a.deleted||{})[k]!=null ? a.deleted[k] : -1,
+        (b.deleted||{})[k]!=null ? b.deleted[k] : -1
+      );
+      if(liveTs >= 0 && liveTs >= delTs) out.projects[k] = { raw:live.raw, ts:liveTs };
+      else if(delTs >= 0) out.deleted[k] = delTs;
+    });
+    return out;
+  }
+  const docsEqual = (a,b) => JSON.stringify(a) === JSON.stringify(b);
+
+  function persistLocal(){ store.set("pl_firebase_doc", JSON.stringify(buildDoc())); }
+  function localChanged(){ persistLocal(); if(syncEnabled && token) pushSync(); }
+
+  function loadLocal(){
+    let doc = null;
+    try{ doc = JSON.parse(store.get("pl_firebase_doc")); }catch(e){}
+    if(!doc || !doc.projects){
+      // migrate older storage formats into the doc
+      doc = emptyDoc(); const now = Date.now();
+      let map = {};
+      try{ map = JSON.parse(store.get("pl_firebase_projects")||"{}"); }catch(e){}
+      Object.keys(map).forEach(k=> doc.projects[k] = { raw:map[k], ts:now });
+      const legacy = store.get("pl_firebase");
+      if(legacy){ try{ const c = parseFirebaseConfig(legacy); const k = fbKey(c); if(!doc.projects[k]) doc.projects[k] = { raw:legacy, ts:now }; }catch(e){} }
+    }
+    applyDoc(doc);
+    store.del("pl_firebase"); store.del("pl_firebase_projects");
+    persistLocal();
+  }
+
+  function setFbBody(open){ fbBody.style.display = open ? "block" : "none"; fbChev.classList.toggle("open", open); }
+  fbToggle.addEventListener("click", ()=> setFbBody(fbBody.style.display === "none"));
+
+  function refreshFbStatus(){
+    if(fbConfig){ fbStatus.textContent = "linked · " + fbLabel(fbConfig); fbStatus.classList.remove("err"); return; }
+    const typed = (fbInput.value||"").trim();
+    const n = Object.keys(fbProjects).length;
+    if(typed){ fbStatus.textContent = "not parsed"; fbStatus.classList.add("err"); }
+    else if(n){ fbStatus.textContent = n + " saved · tap to link"; fbStatus.classList.remove("err"); }
+    else{ fbStatus.textContent = "not linked"; fbStatus.classList.remove("err"); }
+  }
+
+  function renderFbChips(){
+    const wrap = $("#fbChips"), saved = $("#fbSaved");
+    const keys = Object.keys(fbProjects);
+    if(!keys.length){ saved.style.display = "none"; wrap.innerHTML = ""; return; }
+    saved.style.display = "block";
+    wrap.innerHTML = "";
+    keys.forEach(k=>{
+      let label = k;
+      try{ label = fbLabel(parseFirebaseConfig(fbProjects[k])); }catch(e){}
+      const chip = document.createElement("div");
+      chip.className = "fb-chip" + (k===fbActive ? " active" : "");
+      chip.innerHTML = '<span class="fb-chipdot"></span><span class="fb-chiplabel"></span><button class="fb-chipx" title="Remove">×</button>';
+      chip.querySelector(".fb-chiplabel").textContent = label;
+      chip.addEventListener("click", e=>{ if(e.target.classList.contains("fb-chipx")) return; selectFbProject(k); });
+      chip.querySelector(".fb-chipx").addEventListener("click", e=>{ e.stopPropagation(); deleteFbProject(k); });
+      wrap.appendChild(chip);
+    });
+  }
+
+  function selectFbProject(k){
+    const raw = fbProjects[k]; if(!raw) return;
+    fbInput.value = raw;
+    try{
+      fbConfig = parseFirebaseConfig(raw); fbActive = k;
+      fbNote.textContent = "✓ Linked to " + fbLabel(fbConfig); fbNote.className = "fb-note ok";
+    }catch(e){ fbConfig = null; fbActive = null; fbNote.textContent = e.message; fbNote.className = "fb-note err"; }
+    renderFbChips(); refreshFbStatus();
+  }
+
+  function deleteFbProject(k){
+    delete fbProjects[k]; delete fbTs[k]; fbDel[k] = Date.now();
+    if(fbActive === k){ fbActive = null; fbConfig = null; fbInput.value = ""; fbNote.textContent = ""; fbNote.className = "fb-note"; }
+    localChanged(); renderFbChips(); refreshFbStatus();
+  }
+
+  function applyFbInput(){
+    const raw = fbInput.value;
+    if(!(raw||"").trim()){
+      fbConfig = null; fbActive = null; fbNote.textContent = ""; fbNote.className = "fb-note";
+      renderFbChips(); refreshFbStatus(); return;
+    }
+    try{
+      fbConfig = parseFirebaseConfig(raw);
+      const k = fbKey(fbConfig);
+      fbProjects[k] = raw; fbTs[k] = Date.now(); delete fbDel[k]; fbActive = k;
+      localChanged();
+      fbNote.textContent = "✓ Saved & linked to " + fbLabel(fbConfig) + " — pick it anytime";
+      fbNote.className = "fb-note ok";
+    }catch(e){ fbConfig = null; fbActive = null; fbNote.textContent = e.message; fbNote.className = "fb-note err"; }
+    renderFbChips(); refreshFbStatus();
+  }
+  fbInput.addEventListener("input", applyFbInput);
+
+  $("#fbClear").addEventListener("click", ()=>{
+    // "Unlink" clears the current selection but keeps saved chips
+    fbInput.value = ""; fbConfig = null; fbActive = null;
+    fbNote.textContent = ""; fbNote.className = "fb-note";
+    renderFbChips(); refreshFbStatus();
+  });
+
+  // ---------- GitHub-backed sync ----------
+  const setSyncState = (txt, cls)=>{
+    const el = $("#fbSyncState"); el.textContent = txt; el.className = "fb-syncstate" + (cls?(" "+cls):"");
+    const rb = $("#fbRefresh"); if(rb) rb.disabled = !(syncEnabled && token);
+  };
+
+  async function ensureSyncRepo(){
+    const info = await gh("/repos/"+user+"/"+SYNC_REPO);
+    if(info.ok) return;
+    if(info.status === 404){
+      const cr = await gh("/user/repos", { method:"POST",
+        body: JSON.stringify({ name:SYNC_REPO, private:true, auto_init:true, description:"Pages Launcher — synced settings" }) });
+      if(cr.ok){ await sleep(800); return; }
+      throw await ghError(cr, "create the sync repo");
+    }
+    throw await ghError(info, "open the sync repo");
+  }
+
+  async function pullSync(){
+    if(!token || !syncEnabled) return;
+    setSyncState("syncing…");
+    try{
+      await ensureSyncRepo();
+      const res = await gh("/repos/"+user+"/"+SYNC_REPO+"/contents/"+SYNC_FILE);
+      let remote = emptyDoc();
+      if(res.ok){ const j = await res.json(); syncSha = j.sha; try{ remote = JSON.parse(b64ToUtf8(j.content)); }catch(e){ remote = emptyDoc(); } }
+      else if(res.status === 404){ syncSha = null; }
+      else throw await ghError(res, "read synced settings");
+      const merged = mergeDocs(buildDoc(), remote);
+      applyDoc(merged); persistLocal(); renderFbChips(); refreshFbStatus();
+      if(!res.ok || !docsEqual(merged, remote)){ await pushSync(merged); }
+      else setSyncState("synced", "ok");
+    }catch(e){ setSyncState("sync error — retrying on next change", "err"); }
+  }
+
+  async function pushSync(doc){
+    if(!token || !syncEnabled) return;
+    if(syncBusy) return;
+    syncBusy = true; setSyncState("syncing…");
+    try{
+      await ensureSyncRepo();
+      doc = doc || buildDoc();
+      if(syncSha === null){
+        const cur = await gh("/repos/"+user+"/"+SYNC_REPO+"/contents/"+SYNC_FILE);
+        if(cur.ok){ try{ syncSha = (await cur.json()).sha; }catch(e){} }
+      }
+      const body = { message:"Update synced projects", content: utf8ToBase64(JSON.stringify(doc, null, 2)) };
+      if(syncSha) body.sha = syncSha;
+      let res = await gh("/repos/"+user+"/"+SYNC_REPO+"/contents/"+SYNC_FILE, { method:"PUT", body: JSON.stringify(body) });
+      if(res.status === 409){
+        // our sha was stale — refetch and retry once
+        const cur = await gh("/repos/"+user+"/"+SYNC_REPO+"/contents/"+SYNC_FILE);
+        if(cur.ok){ body.sha = (await cur.json()).sha; }
+        res = await gh("/repos/"+user+"/"+SYNC_REPO+"/contents/"+SYNC_FILE, { method:"PUT", body: JSON.stringify(body) });
+      }
+      if(res.ok){ const j = await res.json(); syncSha = j.content ? j.content.sha : null; setSyncState("synced", "ok"); }
+      else throw await ghError(res, "save synced settings");
+    }catch(e){ setSyncState("sync error — retrying on next change", "err"); }
+    finally{ syncBusy = false; }
+  }
+
+  const fbSyncChk = $("#fbSyncChk");
+  fbSyncChk.checked = syncEnabled;
+  fbSyncChk.addEventListener("change", ()=>{
+    syncEnabled = fbSyncChk.checked; store.set("pl_sync", syncEnabled ? "1" : "0");
+    if(syncEnabled){ token ? pullSync() : setSyncState("connect GitHub to sync"); }
+    else setSyncState("off");
+  });
+
+  const fbRefresh = $("#fbRefresh");
+  fbRefresh.addEventListener("click", async ()=>{
+    if(fbRefresh.disabled || !token || !syncEnabled) return;
+    fbRefresh.classList.add("spin");
+    try{ await pullSync(); }
+    finally{ fbRefresh.classList.remove("spin"); }
+  });
+
+  loadLocal(); renderFbChips(); refreshFbStatus();
+  setSyncState(!syncEnabled ? "off" : (token ? "ready" : "connect GitHub to sync"));
+
+  // ---------- steps helpers ----------
+  function resetSteps(){
+    document.querySelectorAll(".step").forEach(s=>{ s.className="step"; });
+    document.querySelectorAll(".detail").forEach(d=>d.textContent="");
+  }
+  const stepEl = k => document.querySelector('.step[data-step="'+k+'"]');
+  function setStep(k, state, detail){
+    const el = stepEl(k);
+    el.classList.remove("active","done","error");
+    if(state) el.classList.add(state);
+    if(detail!=null) el.querySelector('[data-detail="'+k+'"]').textContent = detail;
+  }
+
+  function resetConfig(){
+    files=[]; $("#config").style.display="none";
+    $("#manifest").innerHTML=""; $("#fileInput").value="";
+  }
+
+  // ---------- Launch ----------
+  $("#launchBtn").addEventListener("click", launch);
+
+  async function launch(){
+    if(busy) return;
+    if(!files.length) return;
+    // update mode uses the exact chosen repo name; new mode slugs the typed name
+    const name = mode === "update" ? targetRepo : slug($("#repoName").value);
+    if(mode !== "update") $("#repoName").value = name;
+    busy = true;
+    $("#launchBtn").disabled = true; $("#launchBtn").textContent = "Launching…";
+    $("#launchErr").style.display="none";
+    $("#telemetry").style.display="block";
+    resetSteps();
+    $("#telemetry").scrollIntoView({behavior:"smooth", block:"nearest"});
+
+    let branch = "main";
+    try{
+      // 1. RESOLVE / CREATE REPO
+      setStep("repo","active");
+      if(mode === "update"){
+        // updating an existing repo — just look up its default branch
+        const info = await gh("/repos/"+user+"/"+name);
+        if(!info.ok) throw await ghError(info, "open "+user+"/"+name);
+        branch = (await info.json()).default_branch || "main";
+        setStep("repo","done","updating "+user+"/"+name);
+      } else {
+        const createRes = await gh("/user/repos", {
+          method:"POST",
+          body: JSON.stringify({ name, private: visibility==="private", auto_init:true,
+            description:"Deployed with Pages Launcher" })
+        });
+        if(createRes.status === 201){
+          branch = (await createRes.json()).default_branch || "main";
+          setStep("repo","done","created "+user+"/"+name);
+          await sleep(700); // let auto_init settle
+        } else if(createRes.status === 422){
+          // already exists — reuse it, we'll update files
+          const info = await gh("/repos/"+user+"/"+name);
+          if(info.ok) branch = (await info.json()).default_branch || "main";
+          setStep("repo","done","using existing "+user+"/"+name);
+        } else {
+          throw await ghError(createRes, "create the repository");
+        }
+      }
+
+      // 2. UPLOAD FILES
+      setStep("upload","active");
+      let fbInjected = 0;
+      for(let i=0;i<files.length;i++){
+        const f = files[i];
+        setStep("upload","active", "("+(i+1)+"/"+files.length+") "+f.target);
+        let content;
+        if(fbConfig && isHtml(f.target)){
+          const text = await fileToText(f.file);
+          const out = injectFirebaseConfig(text, fbConfig);
+          content = utf8ToBase64(out.html);
+          fbInjected++;
+        } else {
+          content = await fileToBase64(f.file);
+        }
+        await putFile(name, branch, f.target, content, f.file.name);
+      }
+      // Add .nojekyll so Pages serves the raw HTML instead of running it through
+      // Jekyll (which fails on {{ }} / {% %} in app-style HTML and 404s the site).
+      setStep("upload","active", "adding .nojekyll");
+      await putFile(name, branch, ".nojekyll", "", ".nojekyll");
+      setStep("upload","done", (files.length===1 ? files[0].target : files.length+" files") + " + .nojekyll"
+        + (fbInjected ? " · firebase:"+(fbConfig.projectId||"linked") : ""));
+      lastFbProject = fbInjected ? (fbConfig.projectId || "") : null;
+
+      // 3. ENABLE PAGES
+      setStep("pages","active");
+      const pagesResult = await enablePages(name, branch);
+      setStep("pages","done", (pagesResult==="fixed" ? "fixed source → " : "source: ") + branch + " / (branch build)");
+
+      // 4. LIVE
+      const url = "https://"+user+".github.io/"+name+"/";
+      setStep("live","active");
+      await sleep(400);
+      setStep("live","done", "building…");
+      showResult(url, name);
+    }catch(err){
+      // mark the active step as errored
+      const active = document.querySelector(".step.active");
+      if(active) active.classList.replace("active","error");
+      const b = $("#launchErr");
+      b.textContent = err.message || String(err);
+      b.style.display="block";
+    }finally{
+      busy=false;
+      $("#launchBtn").disabled=false; $("#launchBtn").textContent="Launch to Pages";
+    }
+  }
+
+  async function putFile(repo, branch, path, contentB64, orig){
+    // get existing sha (so re-deploys update instead of failing)
+    let sha = null;
+    const existing = await gh("/repos/"+user+"/"+repo+"/contents/"+encodeURIComponent(path)+"?ref="+branch);
+    if(existing.ok){ try{ sha=(await existing.json()).sha; }catch(e){} }
+
+    const body = { message:"Deploy "+path+" via Pages Launcher", content:contentB64, branch };
+    if(sha) body.sha = sha;
+
+    // retry a couple times in case the branch isn't ready yet on a brand-new repo
+    let lastErr;
+    for(let attempt=0; attempt<3; attempt++){
+      const res = await gh("/repos/"+user+"/"+repo+"/contents/"+encodeURIComponent(path), {
+        method:"PUT", body: JSON.stringify(body)
+      });
+      if(res.ok) return;
+      if(res.status===409 || res.status===404){ lastErr=res; await sleep(1000); continue; }
+      throw await ghError(res, "upload "+(orig||path));
+    }
+    throw await ghError(lastErr, "upload "+(orig||path));
+  }
+
+  async function enablePages(repo, branch){
+    // build_type "legacy" = serve straight from the branch (Jekyll/plain HTML).
+    // Without this, GitHub can default Pages to "workflow" (Actions); with no
+    // workflow in the repo, nothing ever deploys and the site 404s forever.
+    const payload = JSON.stringify({ build_type:"legacy", source:{ branch, path:"/" } });
+
+    // Try to CREATE the Pages site.
+    let res = await gh("/repos/"+user+"/"+repo+"/pages", { method:"POST", body: payload });
+
+    // Brand-new repo: branch may not be ready for a beat — retry the create once.
+    if(res.status===404){
+      await sleep(1200);
+      res = await gh("/repos/"+user+"/"+repo+"/pages", { method:"POST", body: payload });
+    }
+
+    if(res.status===201) return "created";
+
+    // Pages already existed (409). It may be pointed at the wrong source
+    // (e.g. "GitHub Actions"), so force it back to this branch. PUT returns 204.
+    if(res.status===409){
+      const upd = await gh("/repos/"+user+"/"+repo+"/pages", { method:"PUT", body: payload });
+      if(upd.ok || upd.status===204) return "fixed";
+      throw await ghError(upd, "set the Pages source to the "+branch+" branch");
+    }
+
+    throw await ghError(res, "enable Pages");
+  }
+
+  async function ghError(res, action){
+    let msg = "Couldn't "+action+" (HTTP "+res.status+").";
+    try{
+      const j = await res.json();
+      if(j.message) msg += " GitHub says: "+j.message;
+      if(j.errors && j.errors.length && j.errors[0].message) msg += " — "+j.errors[0].message;
+    }catch(e){}
+    if(res.status===403) msg += "\nYour token may be missing the 'repo' scope.";
+    if(res.status===404 && /Pages/.test(action)) msg += "\nIf this is a private repo, Pages needs GitHub Pro.";
+    return new Error(msg);
+  }
+
+  function showResult(url, repo){
+    // reflect the now-live site in the cached repo list
+    if(repoCache){ const c = repoCache.find(r=>r.name===repo); if(c) c.has_pages = true; }
+    $("#againBtn").textContent = mode === "update" ? "Update another site" : "Deploy another";
+    $("#liveUrl").href = url; $("#liveUrl").textContent = url;
+    $("#repoLink").href = "https://github.com/"+user+"/"+repo;
+    $("#settingsLink").href = "https://github.com/"+user+"/"+repo+"/settings/pages";
+    $("#result").style.display="block";
+
+    // Firebase auth helper: drop the user right at the Authorized domains page
+    const authBox = $("#fbAuthBox");
+    if(lastFbProject !== null){
+      const domain = user + ".github.io";
+      $("#fbDomain").textContent = domain;
+      $("#fbAuthLink").href = lastFbProject
+        ? "https://console.firebase.google.com/project/"+encodeURIComponent(lastFbProject)+"/authentication/settings"
+        : "https://console.firebase.google.com/";
+      $("#fbAuthNote").textContent = "In the console: Authentication → Settings → Authorized domains → Add domain. "
+        + "Once per project — every Pages site on " + domain + " is covered after that.";
+      $("#fbDomainCopy").onclick = ()=>{
+        const done = ()=>{ $("#fbDomainCopy").textContent="Copied"; setTimeout(()=>$("#fbDomainCopy").textContent="Copy",1400); };
+        if(navigator.clipboard) navigator.clipboard.writeText(domain).then(done).catch(()=>done());
+        else done();
+      };
+      authBox.style.display="block";
+    } else {
+      authBox.style.display="none";
+    }
+
+    $("#result").scrollIntoView({behavior:"smooth", block:"nearest"});
+    $("#openBtn").onclick = ()=> window.open(url, "_blank", "noopener");
+    $("#copyBtn").onclick = ()=>{
+      const done = ()=>{ $("#copyBtn").textContent="Copied"; setTimeout(()=>$("#copyBtn").textContent="Copy",1400); };
+      if(navigator.clipboard) navigator.clipboard.writeText(url).then(done).catch(fallbackCopy);
+      else fallbackCopy();
+      function fallbackCopy(){ const t=document.createElement("textarea"); t.value=url; document.body.appendChild(t); t.select(); try{document.execCommand("copy");}catch(e){} t.remove(); done(); }
+    };
+  }
+
+  $("#againBtn").addEventListener("click", ()=>{
+    resetConfig();
+    $("#result").style.display="none";
+    if(mode === "update"){
+      // back to the repo browser to pick the next site
+      targetRepo = null;
+      $("#targetBanner").style.display="none";
+      $("#dropzone").style.display="none";
+      $("#repoName").disabled=false;
+      $("#updateView").style.display="block";
+      renderRepoList(repoCache||[]);
+      $("#updateView").scrollIntoView({behavior:"smooth", block:"center"});
+    } else {
+      $("#dropzone").scrollIntoView({behavior:"smooth", block:"center"});
+    }
+  });
+
+  // ---------- restore session ----------
+  (async function init(){
+    const saved = store.get("pl_token");
+    if(saved){
+      $("#connectBtn").disabled=true; $("#connectBtn").textContent="Reconnecting…";
+      try{ await connect(saved); }
+      catch(e){ store.del("pl_token"); }
+      finally{ $("#connectBtn").disabled=false; $("#connectBtn").textContent="Connect"; }
+    }
+  })();
+})();
+</script>
+</body>
+</html>
