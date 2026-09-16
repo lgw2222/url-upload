@@ -146,6 +146,30 @@
   #deployWhat strong{color:var(--ignite);}
   .icon-only{padding:11px 13px;flex:none;}
 
+  /* Expandable repo item + file browser */
+  .repo-item{display:flex;flex-direction:column;}
+  .repo-row{cursor:pointer;}
+  .repo-row .chev{color:var(--faint);font-size:10px;flex:none;width:10px;transition:transform .15s;display:inline-block;}
+  .repo-item.open .repo-row .chev{transform:rotate(90deg);}
+  .repo-item.open .repo-row{border-color:var(--line);background:var(--surface-2);}
+  .repo-files{margin:5px 0 3px 22px;background:var(--surface);border:1px solid var(--line-soft);
+    border-radius:9px;padding:6px;}
+  .fb-crumb{font-family:var(--mono);font-size:11.5px;color:var(--muted);padding:5px 8px 8px;
+    display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
+  .fb-crumb .seg{cursor:pointer;color:var(--link);}
+  .fb-crumb .seg:hover{text-decoration:underline;}
+  .fb-crumb .seg.cur{color:var(--muted);cursor:default;text-decoration:none;}
+  .file-row{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:7px;cursor:pointer;}
+  .file-row:hover{background:var(--surface-2);}
+  .file-row .ficon{flex:none;color:var(--faint);display:grid;place-items:center;width:15px;}
+  .file-row .fname{font-family:var(--mono);font-size:12.5px;color:var(--text);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .file-row .fname.index{color:var(--ignite);}
+  .file-row .fspacer{flex:1;}
+  .file-row .fsize{font-family:var(--mono);font-size:11px;color:var(--faint);flex:none;}
+  .file-row .fext{font-family:var(--mono);font-size:11px;color:var(--faint);flex:none;}
+  .fb-msg{font-family:var(--mono);font-size:12px;color:var(--muted);padding:9px;text-align:center;}
+
   input:disabled{opacity:.6;cursor:not-allowed;}
 
   /* Drop zone */
@@ -566,26 +590,130 @@
     list.innerHTML = "";
     filtered.forEach(r=>{
       const url = "https://"+user+".github.io/"+r.name+"/";
+
+      const item = document.createElement("div");
+      item.className = "repo-item";
+
       const row = document.createElement("div");
       row.className = "repo-row";
       row.innerHTML =
+        '<span class="chev">▶</span>' +
         '<span class="rlive '+(r.has_pages?"on":"off")+'" title="'+(r.has_pages?"Pages live":"No Pages yet")+'"></span>' +
         '<span class="rname">'+escapeHtml(r.name)+'</span>' +
         (r.private ? '<span class="rpriv">private</span>' : '') +
         '<span class="rspacer"></span>' +
         (r.has_pages ? '<span class="rurl">'+escapeHtml(url)+'</span>' : '<span class="rurl">not a site yet</span>');
-      // actions
+
+      // action buttons (stop propagation so they don't toggle the file view)
       if(r.has_pages){
         const open = document.createElement("button");
         open.className = "repo-act"; open.textContent = "Open ↗";
-        open.addEventListener("click", ()=> window.open(url, "_blank", "noopener"));
+        open.addEventListener("click", e=>{ e.stopPropagation(); window.open(url, "_blank", "noopener"); });
         row.appendChild(open);
       }
       const upd = document.createElement("button");
       upd.className = "repo-act primary"; upd.textContent = r.has_pages ? "Update" : "Publish";
-      upd.addEventListener("click", ()=> startUpdate(r));
+      upd.addEventListener("click", e=>{ e.stopPropagation(); startUpdate(r); });
       row.appendChild(upd);
-      list.appendChild(row);
+
+      // expandable file panel
+      const panel = document.createElement("div");
+      panel.className = "repo-files";
+      panel.style.display = "none";
+
+      row.addEventListener("click", ()=>{
+        const isOpen = item.classList.toggle("open");
+        panel.style.display = isOpen ? "block" : "none";
+        if(isOpen && !panel.dataset.loaded){ browseFiles(r, "", panel); }
+      });
+
+      item.appendChild(row);
+      item.appendChild(panel);
+      list.appendChild(item);
+    });
+  }
+
+  // ---------- Repo file browser ----------
+  const filesCache = {}; // key: repo::path  ->  array of entries
+
+  async function browseFiles(r, path, panel){
+    panel.dataset.loaded = "1";
+    panel.innerHTML = '<div class="fb-msg">Loading files…</div>';
+    const key = r.name + "::" + path;
+    try{
+      let entries = filesCache[key];
+      if(!entries){
+        const res = await gh("/repos/"+user+"/"+r.name+"/contents/"+encodeURI(path));
+        if(res.status === 404){ panel.innerHTML = '<div class="fb-msg">This repository is empty.</div>'; return; }
+        if(!res.ok) throw await ghError(res, "list files");
+        entries = await res.json();
+        if(!Array.isArray(entries)) entries = [entries]; // a file path returns an object
+        filesCache[key] = entries;
+      }
+      renderFiles(r, path, entries, panel);
+    }catch(e){
+      panel.innerHTML = '<div class="fb-msg">'+escapeHtml(e.message||"Couldn't load files.")+'</div>';
+    }
+  }
+
+  function fmtSize(n){
+    if(n==null) return "";
+    if(n < 1024) return n + " B";
+    if(n < 1024*1024) return (n/1024).toFixed(n<10240?1:0) + " KB";
+    return (n/1048576).toFixed(1) + " MB";
+  }
+
+  const fileSvg = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>';
+  const dirSvg  = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+
+  function renderFiles(r, path, entries, panel){
+    panel.innerHTML = "";
+
+    // breadcrumb
+    const crumb = document.createElement("div");
+    crumb.className = "fb-crumb";
+    const parts = path ? path.split("/") : [];
+    const root = document.createElement("span");
+    root.className = "seg" + (parts.length? "" : " cur");
+    root.textContent = r.name;
+    if(parts.length) root.addEventListener("click", ()=> browseFiles(r, "", panel));
+    crumb.appendChild(root);
+    let acc = "";
+    parts.forEach((p,i)=>{
+      crumb.appendChild(document.createTextNode(" / "));
+      acc = acc ? acc+"/"+p : p;
+      const seg = document.createElement("span");
+      const last = i === parts.length-1;
+      seg.className = "seg" + (last ? " cur" : "");
+      seg.textContent = p;
+      if(!last){ const target = acc; seg.addEventListener("click", ()=> browseFiles(r, target, panel)); }
+      crumb.appendChild(seg);
+    });
+    panel.appendChild(crumb);
+
+    if(!entries.length){ const m=document.createElement("div"); m.className="fb-msg"; m.textContent="Empty folder."; panel.appendChild(m); return; }
+
+    // dirs first, then files, each alphabetical
+    entries.sort((a,b)=>{
+      if(a.type!==b.type) return a.type==="dir" ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    entries.forEach(en=>{
+      const fr = document.createElement("div");
+      fr.className = "file-row";
+      const isDir = en.type === "dir";
+      const isIndex = en.name.toLowerCase() === "index.html";
+      fr.innerHTML =
+        '<span class="ficon">'+(isDir?dirSvg:fileSvg)+'</span>' +
+        '<span class="fname'+(isIndex?" index":"")+'">'+escapeHtml(en.name)+'</span>' +
+        '<span class="fspacer"></span>' +
+        (isDir ? '' : '<span class="fsize">'+fmtSize(en.size)+'</span>');
+      fr.addEventListener("click", ()=>{
+        if(isDir){ browseFiles(r, en.path, panel); }
+        else if(en.html_url){ window.open(en.html_url, "_blank", "noopener"); }
+      });
+      panel.appendChild(fr);
     });
   }
 
