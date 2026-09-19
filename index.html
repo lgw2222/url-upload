@@ -134,6 +134,14 @@
   .repo-row .rpriv{font-family:var(--mono);font-size:10px;letter-spacing:0.06em;
     text-transform:uppercase;color:var(--faint);border:1px solid var(--line);border-radius:5px;padding:1px 6px;flex:none;}
   .repo-row .rspacer{flex:1;}
+  .repo-row .rurl{max-width:210px;}
+  .repo-row .rtime{font-family:var(--mono);font-size:11px;color:var(--faint);flex:none;}
+  .repo-row .rtime.stale{color:#e0a44a;}
+  .fb-proj.candidate{border-color:rgba(224,164,74,0.45);}
+  .fb-summary{font-family:var(--mono);font-size:12px;color:var(--muted);margin:0 0 10px;display:flex;gap:14px;flex-wrap:wrap;}
+  .fb-summary b{color:var(--text);}
+  .modal-check{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none;}
+  .modal-check input{width:15px;height:15px;accent-color:var(--ignite);cursor:pointer;}
   .repo-act{background:var(--surface-2);border:1px solid var(--line);color:var(--text);
     border-radius:7px;padding:6px 11px;cursor:pointer;font-family:var(--mono);font-size:12px;flex:none;transition:border-color .12s,background .12s;}
   .repo-act:hover{border-color:var(--faint);}
@@ -199,6 +207,20 @@
   .fp-status.gone{color:var(--danger);}
   .fb-none{background:var(--ink);border:1px solid var(--line-soft);border-radius:9px;
     padding:11px 14px;margin-top:6px;font-family:var(--mono);font-size:12px;color:var(--muted);}
+
+  .repo-act.danger{color:var(--danger);border-color:transparent;background:transparent;padding:6px 8px;}
+  .repo-act.danger:hover{background:rgba(240,101,91,0.12);border-color:rgba(240,101,91,0.4);}
+  .btn-danger{background:var(--danger);color:#fff;}
+  .btn-danger:hover:not([disabled]){background:#ff7a70;}
+
+  /* Confirm modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:grid;place-items:center;z-index:50;padding:20px;}
+  .modal{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;max-width:420px;width:100%;}
+  .modal-title{font-family:var(--mono);font-size:15px;font-weight:600;margin-bottom:10px;}
+  .modal-body{color:var(--muted);font-size:13.5px;line-height:1.5;margin-bottom:14px;}
+  .modal-body b{color:var(--text);font-family:var(--mono);}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;}
+  .modal-msg{font-family:var(--mono);font-size:12px;color:var(--danger);margin-top:10px;min-height:14px;}
 
   /* Drop zone */
   #dropzone{
@@ -327,8 +349,8 @@
     </div>
     <div class="hint">
       Create one here →
-      <a href="https://github.com/settings/tokens/new?scopes=repo&description=Pages%20Launcher" target="_blank" rel="noopener">github.com/settings/tokens</a>
-      (classic, with the <code style="font-family:var(--mono)">repo</code> scope). Stored only in this browser.
+      <a href="https://github.com/settings/tokens/new?scopes=repo,delete_repo&description=Pages%20Launcher" target="_blank" rel="noopener">github.com/settings/tokens</a>
+      (classic — check the <code style="font-family:var(--mono)">repo</code> box, and <code style="font-family:var(--mono)">delete_repo</code> too if you want to delete repos from here). Stored only in this browser.
     </div>
     <div class="errbox" id="setupErr"></div>
   </div>
@@ -362,6 +384,15 @@
         <span class="rspacer" style="flex:1"></span>
         <span id="deployWhat">Firebase usage</span>
       </div>
+    </div>
+
+    <div class="card">
+      <label class="field-label">Saved Firebase configs (vault)</label>
+      <p class="hint" style="margin-top:0">Kept in <b>this browser only</b> — never sent anywhere, never seen by Claude. Paste a <code style="font-family:var(--mono)">firebaseConfig</code> to save it, or scan below and hit <b>Save all to vault</b>. Then <b>New starter ↓</b> spins up a fresh single-file app already wired to that project, under its own namespace.</p>
+      <textarea id="vaultIn" placeholder='{ apiKey: "…", authDomain: "…", databaseURL: "…", projectId: "…" }' spellcheck="false"></textarea>
+      <button class="btn btn-ghost btn-block" id="vaultSaveBtn" style="margin-top:10px">Save config</button>
+      <div id="vaultMsg" class="hint" style="display:none;margin-top:8px"></div>
+      <div id="vaultList" style="margin-top:14px"></div>
     </div>
 
     <div class="card">
@@ -471,6 +502,21 @@
   </div>
 
   <div class="footnote">runs entirely in your browser · no server</div>
+
+  <!-- CONFIRM DELETE MODAL -->
+  <div class="modal-overlay" id="confirmModal" style="display:none">
+    <div class="modal">
+      <div class="modal-title">Delete repository?</div>
+      <div class="modal-body" id="confirmBody"></div>
+      <input type="text" id="confirmInput" placeholder="type the repo name to confirm" autocomplete="off" spellcheck="false">
+      <label class="modal-check"><input type="checkbox" id="confirmBackup" checked> Download the site's HTML first (backup)</label>
+      <div class="modal-msg" id="confirmMsg"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="confirmCancel">Cancel</button>
+        <button class="btn btn-danger" id="confirmDelete" disabled>Delete forever</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -655,14 +701,19 @@
       const item = document.createElement("div");
       item.className = "repo-item";
 
+      const when = r.pushed_at || r.updated_at;
+      const rel = relTime(when);
+      const stale = when && (Date.now() - new Date(when).getTime()) > 1000*60*60*24*180; // 6 months
       const row = document.createElement("div");
       row.className = "repo-row";
+      row.title = r.has_pages ? url : (user+"/"+r.name);
       row.innerHTML =
         '<span class="chev">▶</span>' +
         '<span class="rlive '+(r.has_pages?"on":"off")+'" title="'+(r.has_pages?"Pages live":"No Pages yet")+'"></span>' +
         '<span class="rname">'+escapeHtml(r.name)+'</span>' +
         (r.private ? '<span class="rpriv">private</span>' : '') +
         '<span class="rspacer"></span>' +
+        (rel ? '<span class="rtime'+(stale?' stale':'')+'" title="last pushed '+escapeHtml((when||"").slice(0,10))+'">'+rel+'</span>' : '') +
         (r.has_pages ? '<span class="rurl">'+escapeHtml(url)+'</span>' : '<span class="rurl">not a site yet</span>');
 
       // action buttons (stop propagation so they don't toggle the file view)
@@ -683,6 +734,11 @@
       upd.className = "repo-act primary"; upd.textContent = r.has_pages ? "Update" : "Publish";
       upd.addEventListener("click", e=>{ e.stopPropagation(); startUpdate(r); });
       row.appendChild(upd);
+
+      const del = document.createElement("button");
+      del.className = "repo-act danger"; del.title = "Delete this repository"; del.innerHTML = trashSvg;
+      del.addEventListener("click", e=>{ e.stopPropagation(); askDeleteRepo(r.name); });
+      row.appendChild(del);
 
       // expandable file panel
       const panel = document.createElement("div");
@@ -724,6 +780,17 @@
     }
   }
 
+  function relTime(iso){
+    if(!iso) return "";
+    const s = Math.max(0, (Date.now() - new Date(iso).getTime())/1000);
+    if(s < 86400) return "today";
+    const d = Math.floor(s/86400);
+    if(d < 7) return d+"d";
+    if(d < 30) return Math.floor(d/7)+"w";
+    if(d < 365) return Math.floor(d/30)+"mo";
+    return Math.floor(d/365)+"y";
+  }
+
   function fmtSize(n){
     if(n==null) return "";
     if(n < 1024) return n + " B";
@@ -734,6 +801,7 @@
   const fileSvg = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>';
   const dirSvg  = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
   const ghMarkSvg = '<svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.76-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>';
+  const trashSvg = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg>';
 
   function renderFiles(r, path, entries, panel){
     panel.innerHTML = "";
@@ -789,6 +857,64 @@
   $("#repoSearch").addEventListener("input", ()=>{ if(repoCache) renderRepoList(repoCache); });
   $("#refreshRepos").addEventListener("click", ()=> loadRepos(true));
 
+  // ---------- Delete a repository (type-to-confirm) ----------
+  let pendingDelete = null;
+  function askDeleteRepo(name){
+    pendingDelete = name;
+    $("#confirmBody").innerHTML = "This permanently deletes <b>"+escapeHtml(user+"/"+name)+"</b> and its GitHub Pages site. GitHub keeps it recoverable for a short window, but treat this as gone.";
+    $("#confirmInput").value = "";
+    $("#confirmMsg").textContent = "";
+    $("#confirmDelete").disabled = true;
+    $("#confirmModal").style.display = "grid";
+    $("#confirmInput").focus();
+  }
+  $("#confirmInput").addEventListener("input", ()=>{
+    $("#confirmDelete").disabled = ($("#confirmInput").value.trim() !== pendingDelete);
+  });
+  $("#confirmCancel").addEventListener("click", ()=>{ $("#confirmModal").style.display="none"; pendingDelete=null; });
+  $("#confirmModal").addEventListener("click", e=>{ if(e.target.id==="confirmModal"){ $("#confirmModal").style.display="none"; pendingDelete=null; } });
+
+  $("#confirmDelete").addEventListener("click", async ()=>{
+    if(!pendingDelete) return;
+    const name = pendingDelete;
+    const btn = $("#confirmDelete"); btn.disabled = true; btn.textContent = "Deleting…";
+    $("#confirmMsg").textContent = "";
+    try{
+      // optional backup of the site's HTML before it's gone
+      if($("#confirmBackup").checked){
+        btn.textContent = "Backing up…";
+        try{
+          const html = await fetchRepoHtml(name);
+          if(html){
+            const blob = new Blob([html], {type:"text/html"});
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = name + "-index.html";
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+          }
+        }catch(e){ /* no backup available — proceed */ }
+        btn.textContent = "Deleting…";
+      }
+      const res = await gh("/repos/"+user+"/"+name, { method:"DELETE" });
+      if(res.status === 204 || res.status === 404){
+        if(repoCache) repoCache = repoCache.filter(r=>r.name!==name);
+        renderRepoList(repoCache||[]);
+        $("#confirmModal").style.display = "none"; pendingDelete = null;
+      } else if(res.status === 403){
+        $("#confirmMsg").textContent = "Token lacks the delete_repo scope. Regenerate it with that box checked, then Change token.";
+      } else {
+        const e = await ghError(res, "delete the repository");
+        $("#confirmMsg").textContent = e.message;
+      }
+    }catch(e){
+      $("#confirmMsg").textContent = e.message || "Delete failed.";
+    }finally{
+      btn.textContent = "Delete forever";
+      btn.disabled = ($("#confirmInput").value.trim() !== pendingDelete);
+    }
+  });
+
   // ---------- Firebase view ----------
   let fbScanned = null; // cache of last scan
 
@@ -798,6 +924,7 @@
     $("#dropzone").style.display = "none";
     $("#result").style.display = "none";
     $("#fbView").style.display = "block";
+    renderVault();
     window.scrollTo({top:0, behavior:"smooth"});
   }
   $("#firebaseBtn").addEventListener("click", showFirebase);
@@ -820,17 +947,151 @@
     return res.ok ? await res.text() : null;
   }
 
-  function extractFirebase(text){
-    if(!text || !/firebase/i.test(text)) return null;
-    const pid = text.match(/projectId\s*[:=]\s*["']([^"']+)["']/);
-    const dbu = text.match(/databaseURL\s*[:=]\s*["']([^"']+)["']/);
-    const auth = text.match(/authDomain\s*[:=]\s*["']([^"']+)["']/);
-    if(!pid && !dbu && !auth) return null;
-    let projectId = pid ? pid[1] : null;
-    if(!projectId && auth) projectId = auth[1].replace(/\.firebaseapp\.com$/,"");
-    if(!projectId && dbu) projectId = dbu[1].replace(/^https?:\/\//,"").replace(/-default-rtdb.*$/,"").replace(/\.firebaseio\.com.*$/,"");
-    return { projectId: projectId||"(unknown)", databaseURL: dbu ? dbu[1] : null };
+  // Pull every firebaseConfig field we can find anywhere in the text, and
+  // validate the project id so placeholders (YOUR_PROJECT, "…") are rejected.
+  function parseFullConfig(text){
+    if(!text) return null;
+    const grab = k => { const m = text.match(new RegExp(k+"\\s*[:=]\\s*[\"']([^\"']+)[\"']")); return m ? m[1] : null; };
+    const valid = v => v && /^[a-z][a-z0-9-]{3,29}$/.test(v);
+    const cfg = {};
+    ["apiKey","authDomain","databaseURL","projectId","storageBucket","messagingSenderId","appId","measurementId"]
+      .forEach(k => { const v = grab(k); if(v) cfg[k] = v; });
+    let pid = null;
+    if(valid(cfg.projectId)) pid = cfg.projectId;
+    else if(cfg.authDomain){ const a = cfg.authDomain.replace(/\.(firebaseapp\.com|web\.app)$/,""); if(valid(a)) pid = a; }
+    if(!pid && cfg.databaseURL){
+      const d = cfg.databaseURL.replace(/^https?:\/\//,"").replace(/-default-rtdb.*$/,"").replace(/\.firebaseio\.com.*$/,"").replace(/\.firebasedatabase\.app.*$/,"").replace(/\..*$/,"");
+      if(valid(d)) pid = d;
+    }
+    if(!pid) return null;
+    cfg.projectId = pid;
+    if(cfg.databaseURL && !/^https?:\/\/[a-z0-9-]+.*firebase(io\.com|database\.app)/i.test(cfg.databaseURL)) delete cfg.databaseURL;
+    return cfg;
   }
+
+  function extractFirebase(text){
+    const cfg = parseFullConfig(text);
+    if(!cfg) return null;
+    return { projectId: cfg.projectId, databaseURL: cfg.databaseURL || null, config: cfg };
+  }
+
+  // ---------- Config vault (stored in this browser only) ----------
+  function vaultGet(){ try{ return JSON.parse(store.get("pl_vault")||"[]"); }catch(e){ return []; } }
+  function vaultSet(arr){ store.set("pl_vault", JSON.stringify(arr)); }
+  function vaultSave(cfg){
+    if(!cfg || !cfg.projectId) return false;
+    const arr = vaultGet();
+    const i = arr.findIndex(c => c.projectId === cfg.projectId);
+    const entry = Object.assign({}, arr[i]||{}, cfg, { savedAt: Date.now() });
+    if(i >= 0) arr[i] = entry; else arr.push(entry);
+    vaultSet(arr);
+    return true;
+  }
+  function vaultRemove(pid){ vaultSet(vaultGet().filter(c => c.projectId !== pid)); }
+
+  function cfgToText(cfg){
+    const keys = ["apiKey","authDomain","databaseURL","projectId","storageBucket","messagingSenderId","appId"];
+    return "{\n" + keys.filter(k=>cfg[k]).map(k => '    '+k+': "'+cfg[k]+'"').join(",\n") + "\n  }";
+  }
+
+  function buildSnippet(objText){
+    const V = "10.12.0";
+    return '<!-- Firebase (compat build — works in a single-file page) -->\n' +
+      '<script src="https://www.gstatic.com/firebasejs/'+V+'/firebase-app-compat.js"></scr'+'ipt>\n' +
+      '<script src="https://www.gstatic.com/firebasejs/'+V+'/firebase-database-compat.js"></scr'+'ipt>\n' +
+      '<script>\n' +
+      '  const firebaseConfig = ' + objText + ';\n' +
+      '  firebase.initializeApp(firebaseConfig);\n' +
+      '  const db = firebase.database();\n' +
+      '  // example: db.ref("messages").on("value", s => console.log(s.val()));\n' +
+      '</scr'+'ipt>';
+  }
+
+  function suggestNs(cfg){ return ((cfg.projectId||"app").replace(/-[a-z0-9]{4,6}$/,"").replace(/[^a-z0-9-]/g,"")) || "app"; }
+
+  // A complete, ready-to-build single-file app wired to a shared project under its own branch.
+  function buildStarter(cfg, ns){
+    const V = "10.12.0";
+    const t = "<"+"title>"+ns+"</title>";
+    return '<!DOCTYPE html>\n<html lang="en">\n<head>\n' +
+'<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n' + t + '\n' +
+'<style>\n' +
+'  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:640px;margin:40px auto;padding:0 18px;background:#0f1115;color:#e6e8ec}\n' +
+'  h1{font-size:22px}code{background:#1a1d24;padding:2px 6px;border-radius:5px}\n' +
+'  input{width:100%;box-sizing:border-box;padding:12px;font-size:16px;border-radius:8px;border:1px solid #2a2e37;background:#161922;color:#e6e8ec;margin-top:10px}\n' +
+'  .muted{color:#8b93a1;font-size:14px}\n' +
+'</style>\n</head>\n<body>\n' +
+'<h1>'+ns+'</h1>\n' +
+'<p class="muted">Synced through Firebase under the <code>'+ns+'</code> branch of your shared project. Open this file in two tabs to watch it sync.</p>\n' +
+'<input id="msg" placeholder="type something — it syncs live">\n' +
+'<script src="https://www.gstatic.com/firebasejs/'+V+'/firebase-app-compat.js"></scr'+'ipt>\n' +
+'<script src="https://www.gstatic.com/firebasejs/'+V+'/firebase-database-compat.js"></scr'+'ipt>\n' +
+'<script>\n' +
+'  const firebaseConfig = ' + cfgToText(cfg) + ';\n' +
+'  firebase.initializeApp(firebaseConfig);\n' +
+'  const db = firebase.database();\n' +
+'\n' +
+'  // Everything this app does lives under one branch, so it never collides\n' +
+'  // with your other apps sharing this same project.\n' +
+'  const NS = "' + ns + '";\n' +
+'  const root = db.ref(NS);\n' +
+'\n' +
+'  // --- demo: keep one field in sync (delete once you start building) ---\n' +
+'  const box = document.getElementById("msg");\n' +
+'  root.child("demo").on("value", s => { const v = s.val() || ""; if(document.activeElement !== box) box.value = v; });\n' +
+'  box.addEventListener("input", () => root.child("demo").set(box.value));\n' +
+'\n' +
+'  // Build your app on `root`, e.g. root.child("rooms"), root.child("players")...\n' +
+'</scr'+'ipt>\n</body>\n</html>\n';
+  }
+
+  function mkBtn(label, cls, fn){ const b=document.createElement("button"); b.className=cls; b.textContent=label; b.addEventListener("click",fn); return b; }
+  function copyText(txt, btnEl){
+    const o = btnEl.textContent, done = ()=>{ btnEl.textContent="Copied"; setTimeout(()=>btnEl.textContent=o,1400); };
+    if(navigator.clipboard) navigator.clipboard.writeText(txt).then(done).catch(fb); else fb();
+    function fb(){ const t=document.createElement("textarea"); t.value=txt; document.body.appendChild(t); t.select(); try{document.execCommand("copy");}catch(e){} t.remove(); done(); }
+  }
+  function makeStarter(cfg){
+    let ns = prompt("Namespace for this new app (its own branch inside the shared database):", suggestNs(cfg));
+    if(ns == null) return;
+    ns = ns.trim().replace(/[^a-zA-Z0-9_-]/g,"-").replace(/^-+|-+$/g,"") || "app";
+    const blob = new Blob([buildStarter(cfg, ns)], {type:"text/html"});
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = ns+"-starter.html";
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+  }
+
+  function renderVault(){
+    const list = $("#vaultList"); if(!list) return;
+    const arr = vaultGet(); list.innerHTML = "";
+    if(!arr.length){ list.innerHTML = '<div class="fb-none">No saved configs yet — paste one above, or scan below and click “Save all to vault”.</div>'; return; }
+    arr.sort((a,b)=> a.projectId.localeCompare(b.projectId));
+    arr.forEach(cfg=>{
+      const card = document.createElement("div"); card.className = "fb-proj";
+      card.innerHTML =
+        '<div class="fp-head"><span class="fp-id">'+escapeHtml(cfg.projectId)+'</span></div>' +
+        '<div class="fp-db">'+escapeHtml(cfg.databaseURL || "(no databaseURL — realtime features won\'t work until you add one)")+'</div>' +
+        '<div class="fp-actions"></div>';
+      const actions = card.querySelector(".fp-actions");
+      const copyBtn = mkBtn("Copy init code","repo-act",()=> copyText(buildSnippet(cfgToText(cfg)), copyBtn));
+      actions.appendChild(mkBtn("New starter ↓","repo-act",()=> makeStarter(cfg)));
+      actions.appendChild(copyBtn);
+      actions.appendChild(mkBtn("Console ↗","repo-act",()=> window.open("https://console.firebase.google.com/project/"+encodeURIComponent(cfg.projectId)+"/overview","_blank","noopener")));
+      actions.appendChild(mkBtn("Remove","repo-act danger",()=>{ vaultRemove(cfg.projectId); renderVault(); }));
+      list.appendChild(card);
+    });
+  }
+
+  $("#vaultSaveBtn") && $("#vaultSaveBtn").addEventListener("click", ()=>{
+    const raw = $("#vaultIn").value.trim(); const msg = $("#vaultMsg");
+    if(!raw) return;
+    const cfg = parseFullConfig(raw);
+    if(!cfg){ msg.style.display="block"; msg.textContent="Couldn't find a valid firebaseConfig there (need at least a projectId)."; return; }
+    vaultSave(cfg);
+    $("#vaultIn").value = "";
+    msg.style.display = "block";
+    msg.textContent = "Saved "+cfg.projectId + (cfg.databaseURL ? "" : " — no databaseURL found; add it for realtime features.");
+    renderVault();
+  });
 
   $("#fbScanBtn").addEventListener("click", scanFirebase);
 
@@ -850,8 +1111,9 @@
         const fb = extractFirebase(text);
         if(fb){
           const key = fb.projectId;
-          if(!map[key]) map[key] = { databaseURL: fb.databaseURL, repos: [] };
+          if(!map[key]) map[key] = { databaseURL: fb.databaseURL, repos: [], config: fb.config };
           if(!map[key].databaseURL && fb.databaseURL) map[key].databaseURL = fb.databaseURL;
+          if(!map[key].config && fb.config) map[key].config = fb.config;
           map[key].repos.push(repos[i].name);
         } else {
           noneList.push(repos[i].name);
@@ -868,13 +1130,37 @@
     }
   }
 
+  let fbCards = []; // {id, db, checkBtn, status, card}
+
   function renderFbResults(map, noneList){
     const out = $("#fbResults");
     out.innerHTML = "";
+    fbCards = [];
     const ids = Object.keys(map).sort((a,b)=> map[b].repos.length - map[a].repos.length);
     if(!ids.length){
       out.innerHTML = '<div class="fb-none">No Firebase config found in any repo.</div>';
+      return;
     }
+
+    // summary + check-all controls
+    const bar = document.createElement("div");
+    bar.className = "row"; bar.style.marginBottom = "12px"; bar.style.gap = "10px";
+    bar.innerHTML = '<div class="fb-summary grow" id="fbSummary">'+ids.length+' project'+(ids.length>1?'s':'')+' used by your sites</div>';
+    const checkAll = document.createElement("button");
+    checkAll.className = "btn btn-ghost"; checkAll.id = "fbCheckAll"; checkAll.textContent = "Check all databases";
+    bar.appendChild(checkAll);
+    const saveAll = document.createElement("button");
+    saveAll.className = "btn btn-ghost"; saveAll.textContent = "Save all to vault";
+    saveAll.addEventListener("click", ()=>{
+      let n = 0; ids.forEach(id=>{ if(map[id].config && vaultSave(map[id].config)) n++; });
+      saveAll.textContent = n ? ("Saved "+n+" ✓") : "Nothing to save";
+      setTimeout(()=> saveAll.textContent = "Save all to vault", 1800);
+      renderVault();
+    });
+    bar.appendChild(saveAll);
+    out.appendChild(bar);
+    checkAll.addEventListener("click", checkAllDbs);
+
     ids.forEach(id=>{
       const p = map[id];
       const card = document.createElement("div");
@@ -893,12 +1179,19 @@
       const consoleBtn = document.createElement("button");
       consoleBtn.className = "repo-act"; consoleBtn.textContent = "Console ↗";
       consoleBtn.addEventListener("click", ()=> window.open("https://console.firebase.google.com/project/"+encodeURIComponent(id)+"/overview", "_blank", "noopener"));
-      checkBtn.addEventListener("click", ()=> pingDb(id, p.databaseURL, checkBtn, status));
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "repo-act danger"; deleteBtn.textContent = "Delete ↗"; deleteBtn.title = "Open this project's delete page in the Firebase console";
+      deleteBtn.style.padding = "6px 11px";
+      deleteBtn.addEventListener("click", ()=> window.open("https://console.firebase.google.com/project/"+encodeURIComponent(id)+"/settings/general", "_blank", "noopener"));
+      checkBtn.addEventListener("click", ()=> pingDb(id, p.databaseURL, checkBtn, status, card));
       actions.appendChild(checkBtn);
       actions.appendChild(consoleBtn);
+      actions.appendChild(deleteBtn);
       actions.appendChild(status);
       out.appendChild(card);
+      fbCards.push({ id, db: p.databaseURL, checkBtn, status, card });
     });
+
     if(noneList.length){
       const none = document.createElement("div");
       none.className = "fb-none";
@@ -907,9 +1200,32 @@
     }
   }
 
-  async function pingDb(projectId, databaseURL, btn, status){
+  async function checkAllDbs(){
+    const btn = $("#fbCheckAll"); btn.disabled = true;
+    const tally = { used:0, empty:0, locked:0, gone:0 };
+    for(let i=0;i<fbCards.length;i++){
+      btn.textContent = "Checking "+(i+1)+"/"+fbCards.length+"…";
+      const c = fbCards[i];
+      const cat = await pingDb(c.id, c.db, c.checkBtn, c.status, c.card);
+      if(tally[cat]!=null) tally[cat]++;
+    }
+    btn.disabled = false; btn.textContent = "Re-check all databases";
+    const s = $("#fbSummary");
+    if(s){
+      const parts = [];
+      if(tally.used)   parts.push('<b style="color:var(--live)">'+tally.used+'</b> with data');
+      if(tally.empty)  parts.push('<b style="color:#e0a44a">'+tally.empty+'</b> empty (safe to delete)');
+      if(tally.locked) parts.push('<b>'+tally.locked+'</b> locked');
+      if(tally.gone)   parts.push('<b style="color:var(--danger)">'+tally.gone+'</b> no DB');
+      s.innerHTML = parts.join(" · ") || "Checked all databases";
+    }
+  }
+
+  async function pingDb(projectId, databaseURL, btn, status, card){
     btn.disabled = true; const old = btn.textContent; btn.textContent = "Checking…";
     status.className = "fp-status"; status.textContent = "";
+    if(card) card.classList.remove("candidate");
+    let category = "gone";
     // candidate REST endpoints for the Realtime Database
     const bases = [];
     if(databaseURL) bases.push(databaseURL.replace(/\/$/,""));
@@ -921,23 +1237,28 @@
         const res = await fetch(base+"/.json?shallow=true");
         if(res.status === 401 || res.status === 403){
           status.className = "fp-status locked"; status.textContent = "● exists — rules require auth (can't read)";
-          done = true; break;
+          category = "locked"; done = true; break;
         }
         if(res.ok){
           let data = null; try{ data = await res.json(); }catch(e){}
           if(data && typeof data === "object" && Object.keys(data).length){
             status.className = "fp-status used"; status.textContent = "● has data ("+Object.keys(data).length+" top-level keys)";
+            category = "used";
           } else if(data && typeof data !== "object"){
             status.className = "fp-status used"; status.textContent = "● has data";
+            category = "used";
           } else {
             status.className = "fp-status empty"; status.textContent = "● reachable but empty";
+            category = "empty";
           }
           done = true; break;
         }
       }catch(e){ /* try next candidate */ }
     }
-    if(!done){ status.className = "fp-status gone"; status.textContent = "● no database reachable (may be Firestore, or none)"; }
+    if(!done){ status.className = "fp-status gone"; status.textContent = "● no database reachable (may be Firestore, or none)"; category = "gone"; }
+    if(card && (category === "empty" || category === "gone")) card.classList.add("candidate");
     btn.disabled = false; btn.textContent = old;
+    return category;
   }
 
   // ---------- Firebase starter snippet ----------
@@ -947,18 +1268,7 @@
     // grab the {...} object if they pasted extra code around it
     const m = raw.match(/\{[\s\S]*\}/);
     const objText = m ? m[0] : raw;
-    const V = "10.12.0";
-    const snippet =
-'<!-- Firebase (compat build — works in a single-file page) -->\n' +
-'<script src="https://www.gstatic.com/firebasejs/'+V+'/firebase-app-compat.js"></scr'+'ipt>\n' +
-'<script src="https://www.gstatic.com/firebasejs/'+V+'/firebase-database-compat.js"></scr'+'ipt>\n' +
-'<script>\n' +
-'  const firebaseConfig = ' + objText + ';\n' +
-'  firebase.initializeApp(firebaseConfig);\n' +
-'  const db = firebase.database();\n' +
-'  // example: db.ref("messages").on("value", s => console.log(s.val()));\n' +
-'</scr'+'ipt>';
-    $("#fbSnippetOut").textContent = snippet;
+    $("#fbSnippetOut").textContent = buildSnippet(objText);
     $("#fbSnippetWrap").style.display = "block";
   });
 
