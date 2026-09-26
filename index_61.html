@@ -1,0 +1,1758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pages Launcher</title>
+<style>
+  :root{
+    --ink:#0E1116;
+    --surface:#161B22;
+    --surface-2:#1C222B;
+    --line:#2A313C;
+    --line-soft:#222833;
+    --text:#E7ECF2;
+    --muted:#8C97A6;
+    --faint:#5B6673;
+    --ignite:#FF7A45;
+    --ignite-dim:#5a3320;
+    --live:#3FB950;
+    --link:#5AA9FF;
+    --danger:#F0655B;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(900px 500px at 80% -10%, rgba(255,122,69,0.08), transparent 60%),
+      var(--ink);
+    color:var(--text);
+    font-family:var(--sans);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+  }
+  .wrap{max-width:640px;margin:0 auto;padding:40px 22px 80px;}
+
+  /* Header */
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:6px;}
+  .brand .mark{
+    width:34px;height:34px;border-radius:9px;
+    background:linear-gradient(150deg,var(--ignite),#ff9d6e);
+    display:grid;place-items:center;flex:none;
+    box-shadow:0 0 0 1px rgba(255,122,69,0.25), 0 8px 22px -8px rgba(255,122,69,0.6);
+  }
+  .brand .mark svg{width:18px;height:18px;display:block;}
+  .brand h1{
+    font-family:var(--mono);font-size:18px;font-weight:600;letter-spacing:-0.02em;margin:0;
+  }
+  .tagline{color:var(--muted);font-size:13.5px;margin:0 0 26px 46px;}
+
+  /* Cards */
+  .card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:20px;
+    margin-bottom:16px;
+  }
+  .card.tight{padding:16px 18px;}
+
+  label.field-label{
+    display:block;font-family:var(--mono);font-size:11px;letter-spacing:0.08em;
+    text-transform:uppercase;color:var(--faint);margin-bottom:8px;
+  }
+
+  input[type=text], input[type=password]{
+    width:100%;background:var(--ink);border:1px solid var(--line);
+    color:var(--text);border-radius:9px;padding:11px 13px;
+    font-family:var(--mono);font-size:14px;outline:none;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  input:focus{border-color:var(--ignite);box-shadow:0 0 0 3px rgba(255,122,69,0.14);}
+  input::placeholder{color:var(--faint);}
+
+  .btn{
+    font-family:var(--sans);font-size:14px;font-weight:600;
+    border:none;border-radius:9px;padding:11px 18px;cursor:pointer;
+    transition:transform .06s ease, background .15s, opacity .15s;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn[disabled]{opacity:.45;cursor:not-allowed;}
+  .btn-ignite{
+    background:linear-gradient(150deg,var(--ignite),#ff9152);color:#1a0d05;
+    box-shadow:0 8px 20px -10px rgba(255,122,69,0.8);
+  }
+  .btn-ignite:hover:not([disabled]){background:linear-gradient(150deg,#ff8a5c,#ffa26a);}
+  .btn-ghost{background:var(--surface-2);color:var(--text);border:1px solid var(--line);}
+  .btn-ghost:hover{border-color:var(--faint);}
+  .btn-block{width:100%;padding:14px;font-size:15px;}
+
+  .row{display:flex;gap:10px;align-items:center;}
+  .grow{flex:1;}
+
+  .link{color:var(--link);text-decoration:none;}
+  .link:hover{text-decoration:underline;}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:10px;}
+  .hint a{color:var(--link);text-decoration:none;}
+  .hint a:hover{text-decoration:underline;}
+
+  /* Connected chip */
+  #connected{display:none;}
+  .chip{
+    display:flex;align-items:center;gap:10px;
+    font-family:var(--mono);font-size:13px;
+  }
+  .chip .dot{width:8px;height:8px;border-radius:50%;background:var(--live);
+    box-shadow:0 0 0 3px rgba(63,185,80,0.18);flex:none;}
+  .chip .avatar{width:24px;height:24px;border-radius:50%;background:var(--surface-2);flex:none;}
+  .chip .change{margin-left:auto;color:var(--muted);font-size:12px;background:none;border:none;
+    cursor:pointer;font-family:var(--sans);}
+  .chip .change:hover{color:var(--text);text-decoration:underline;}
+
+  /* Mode tabs */
+  .tabs{display:flex;gap:6px;background:var(--surface);border:1px solid var(--line);
+    border-radius:11px;padding:5px;margin-bottom:16px;}
+  .tab{flex:1;background:none;border:none;color:var(--muted);cursor:pointer;
+    font-family:var(--mono);font-size:13px;padding:9px;border-radius:7px;transition:background .15s,color .15s;}
+  .tab:hover{color:var(--text);}
+  .tab.on{background:var(--surface-2);color:var(--text);}
+
+  /* Repo browser / dashboard */
+  .repolist{display:flex;flex-direction:column;gap:6px;max-height:460px;overflow-y:auto;}
+  .repo-empty{color:var(--muted);font-size:13px;padding:16px 4px;text-align:center;}
+  .repo-row{display:flex;align-items:center;gap:11px;padding:11px 13px;
+    background:var(--ink);border:1px solid var(--line-soft);border-radius:9px;}
+  .repo-row .rname{font-family:var(--mono);font-size:13.5px;color:var(--text);flex:none;}
+  .repo-row .rurl{font-family:var(--mono);font-size:11.5px;color:var(--faint);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .repo-row .rlive{width:7px;height:7px;border-radius:50%;flex:none;}
+  .repo-row .rlive.on{background:var(--live);box-shadow:0 0 0 3px rgba(63,185,80,0.15);}
+  .repo-row .rlive.off{background:var(--faint);}
+  .repo-row .rpriv{font-family:var(--mono);font-size:10px;letter-spacing:0.06em;
+    text-transform:uppercase;color:var(--faint);border:1px solid var(--line);border-radius:5px;padding:1px 6px;flex:none;}
+  .repo-row .rspacer{flex:1;}
+  .repo-row .rurl{max-width:210px;}
+  .repo-row .rtime{font-family:var(--mono);font-size:11px;color:var(--faint);flex:none;}
+  .repo-row .rtime.stale{color:#e0a44a;}
+  .fb-proj.candidate{border-color:rgba(224,164,74,0.45);}
+  .fb-summary{font-family:var(--mono);font-size:12px;color:var(--muted);margin:0 0 10px;display:flex;gap:14px;flex-wrap:wrap;}
+  .fb-summary b{color:var(--text);}
+  .modal-check{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none;}
+  .modal-check input{width:15px;height:15px;accent-color:var(--ignite);cursor:pointer;}
+  .repo-act{background:var(--surface-2);border:1px solid var(--line);color:var(--text);
+    border-radius:7px;padding:6px 11px;cursor:pointer;font-family:var(--mono);font-size:12px;flex:none;transition:border-color .12s,background .12s;}
+  .repo-act:hover{border-color:var(--faint);}
+  .repo-act.primary{background:var(--ignite);color:#1a0d05;border-color:transparent;font-weight:600;}
+  .repo-act.primary:hover{background:#ff8a5c;}
+  .repo-act.ghbtn{display:grid;place-items:center;padding:6px 8px;color:var(--muted);}
+  .repo-act.ghbtn:hover{color:var(--text);border-color:var(--faint);}
+
+  .back-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-family:var(--sans);font-size:13px;padding:0;}
+  .back-btn:hover{color:var(--text);}
+  #deployWhat{font-family:var(--mono);font-size:13px;color:var(--text);}
+  #deployWhat strong{color:var(--ignite);}
+  .icon-only{padding:11px 13px;flex:none;}
+
+  /* Expandable repo item + file browser */
+  .repo-item{display:flex;flex-direction:column;}
+  .repo-row{cursor:pointer;}
+  .repo-row .chev{color:var(--faint);font-size:10px;flex:none;width:10px;transition:transform .15s;display:inline-block;}
+  .repo-item.open .repo-row .chev{transform:rotate(90deg);}
+  .repo-item.open .repo-row{border-color:var(--line);background:var(--surface-2);}
+  .repo-files{margin:5px 0 3px 22px;background:var(--surface);border:1px solid var(--line-soft);
+    border-radius:9px;padding:6px;}
+  .fb-crumb{font-family:var(--mono);font-size:11.5px;color:var(--muted);padding:5px 8px 8px;
+    display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
+  .fb-crumb .seg{cursor:pointer;color:var(--link);}
+  .fb-crumb .seg:hover{text-decoration:underline;}
+  .fb-crumb .seg.cur{color:var(--muted);cursor:default;text-decoration:none;}
+  .file-row{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:7px;cursor:pointer;}
+  .file-row:hover{background:var(--surface-2);}
+  .file-row .ficon{flex:none;color:var(--faint);display:grid;place-items:center;width:15px;}
+  .file-row .fname{font-family:var(--mono);font-size:12.5px;color:var(--text);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .file-row .fname.index{color:var(--ignite);}
+  .file-row .fspacer{flex:1;}
+  .file-row .fsize{font-family:var(--mono);font-size:11px;color:var(--faint);flex:none;}
+  .file-row .fext{font-family:var(--mono);font-size:11px;color:var(--faint);flex:none;}
+  .fb-msg{font-family:var(--mono);font-size:12px;color:var(--muted);padding:9px;text-align:center;}
+
+  input:disabled{opacity:.6;cursor:not-allowed;}
+
+  /* Firebase view */
+  textarea#fbConfigIn{width:100%;min-height:90px;resize:vertical;background:var(--ink);
+    border:1px solid var(--line);color:var(--text);border-radius:9px;padding:11px 13px;
+    font-family:var(--mono);font-size:12.5px;outline:none;line-height:1.5;}
+  textarea#fbConfigIn:focus{border-color:var(--ignite);box-shadow:0 0 0 3px rgba(255,122,69,0.14);}
+  .snippet{background:var(--ink);border:1px solid var(--line);border-radius:9px;padding:13px;
+    font-family:var(--mono);font-size:11.5px;color:var(--text);overflow-x:auto;white-space:pre;margin:0;line-height:1.6;}
+  .fb-proj{background:var(--ink);border:1px solid var(--line-soft);border-radius:9px;padding:12px 14px;margin-bottom:8px;}
+  .fb-proj .fp-head{display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+  .fb-proj .fp-id{font-family:var(--mono);font-size:13.5px;color:var(--ignite);}
+  .fb-proj .fp-count{font-family:var(--mono);font-size:11px;color:var(--faint);
+    border:1px solid var(--line);border-radius:5px;padding:1px 7px;}
+  .fb-proj .fp-db{font-family:var(--mono);font-size:11px;color:var(--faint);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:6px;}
+  .fb-proj .fp-sites{margin-top:9px;display:flex;flex-wrap:wrap;gap:6px;}
+  .fb-proj .fp-site{font-family:var(--mono);font-size:11.5px;color:var(--muted);
+    background:var(--surface-2);border-radius:6px;padding:3px 8px;}
+  .fb-proj .fp-actions{margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .fb-proj .fp-status{font-family:var(--mono);font-size:11.5px;}
+  .fp-status.used{color:var(--live);}
+  .fp-status.empty{color:#e0a44a;}
+  .fp-status.locked{color:var(--muted);}
+  .fp-status.gone{color:var(--danger);}
+  .fb-none{background:var(--ink);border:1px solid var(--line-soft);border-radius:9px;
+    padding:11px 14px;margin-top:6px;font-family:var(--mono);font-size:12px;color:var(--muted);}
+
+  .repo-act.danger{color:var(--danger);border-color:transparent;background:transparent;padding:6px 8px;}
+  .repo-act.danger:hover{background:rgba(240,101,91,0.12);border-color:rgba(240,101,91,0.4);}
+  .btn-danger{background:var(--danger);color:#fff;}
+  .btn-danger:hover:not([disabled]){background:#ff7a70;}
+
+  /* Confirm modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:grid;place-items:center;z-index:50;padding:20px;}
+  .modal{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;max-width:420px;width:100%;}
+  .modal-title{font-family:var(--mono);font-size:15px;font-weight:600;margin-bottom:10px;}
+  .modal-body{color:var(--muted);font-size:13.5px;line-height:1.5;margin-bottom:14px;}
+  .modal-body b{color:var(--text);font-family:var(--mono);}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;}
+  .modal-msg{font-family:var(--mono);font-size:12px;color:var(--danger);margin-top:10px;min-height:14px;}
+
+  /* Drop zone */
+  #dropzone{
+    border:1.5px dashed var(--line);border-radius:14px;
+    padding:40px 20px;text-align:center;cursor:pointer;
+    transition:border-color .15s, background .15s;
+    background:var(--surface);
+  }
+  #dropzone:hover{border-color:var(--faint);}
+  #dropzone.drag{border-color:var(--ignite);background:rgba(255,122,69,0.06);}
+  #dropzone .icon{
+    width:44px;height:44px;margin:0 auto 14px;border-radius:11px;
+    background:var(--surface-2);display:grid;place-items:center;color:var(--muted);
+  }
+  #dropzone .big{font-size:15px;font-weight:600;}
+  #dropzone .small{color:var(--muted);font-size:12.5px;margin-top:5px;}
+  #dropzone.disabled{opacity:.4;pointer-events:none;}
+
+  /* Manifest */
+  .manifest{margin-top:14px;display:flex;flex-direction:column;gap:6px;}
+  .mrow{
+    display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12.5px;
+    background:var(--ink);border:1px solid var(--line-soft);border-radius:8px;padding:8px 11px;
+  }
+  .mrow .from{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mrow .arrow{color:var(--faint);flex:none;}
+  .mrow .to{color:var(--text);flex:none;}
+  .mrow .to.index{color:var(--ignite);}
+  .mrow .rm{margin-left:auto;background:none;border:none;color:var(--faint);cursor:pointer;
+    font-size:15px;line-height:1;padding:0 2px;flex:none;}
+  .mrow .rm:hover{color:var(--danger);}
+  .mrow .msize{margin-left:auto;color:var(--faint);font-size:11px;flex:none;}
+  .mrow .rm{margin-left:8px;}
+  .mrow .path{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mrow .path.index{color:var(--ignite);}
+  .pickrow{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;}
+  .pickrow .pickhint{color:var(--faint);font-size:12px;}
+  #intakeErr{margin-top:12px;}
+
+  .warnline{color:#e0a44a;font-size:12.5px;margin-top:10px;display:flex;gap:7px;align-items:flex-start;}
+
+  /* Config after drop */
+  #config{display:none;margin-top:16px;}
+  .toggle{display:flex;gap:8px;background:var(--ink);border:1px solid var(--line);border-radius:9px;padding:4px;}
+  .toggle button{
+    flex:1;background:none;border:none;color:var(--muted);cursor:pointer;
+    font-family:var(--mono);font-size:12.5px;padding:8px;border-radius:6px;
+  }
+  .toggle button.on{background:var(--surface-2);color:var(--text);}
+  .two{display:flex;gap:14px;margin-bottom:16px;}
+  .two > div{flex:1;}
+
+  /* Telemetry rail */
+  #telemetry{display:none;margin-top:18px;}
+  .step{display:flex;gap:13px;align-items:flex-start;padding:9px 0;position:relative;}
+  .step:not(:last-child)::before{
+    content:"";position:absolute;left:9px;top:26px;bottom:-9px;width:2px;background:var(--line);
+  }
+  .step .node{
+    width:20px;height:20px;border-radius:50%;flex:none;margin-top:1px;
+    border:2px solid var(--line);background:var(--ink);
+    display:grid;place-items:center;transition:all .2s;position:relative;z-index:1;
+  }
+  .step .node svg{width:11px;height:11px;opacity:0;transition:opacity .2s;}
+  .step .label{font-family:var(--mono);font-size:13px;color:var(--faint);transition:color .2s;}
+  .step .detail{font-family:var(--mono);font-size:11.5px;color:var(--faint);margin-top:2px;}
+
+  .step.active .node{border-color:var(--ignite);
+    box-shadow:0 0 0 4px rgba(255,122,69,0.14);}
+  .step.active .label{color:var(--text);}
+  .step.active .node::after{
+    content:"";position:absolute;inset:2px;border-radius:50%;
+    border:2px solid transparent;border-top-color:var(--ignite);
+    animation:spin .7s linear infinite;
+  }
+  .step.done .node{border-color:var(--live);background:var(--live);}
+  .step.done .node svg{opacity:1;}
+  .step.done .label{color:var(--text);}
+  .step.error .node{border-color:var(--danger);background:var(--danger);}
+  .step.error .node svg{opacity:1;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* Result */
+  #result{display:none;margin-top:4px;}
+  .live-card{
+    background:linear-gradient(150deg, rgba(63,185,80,0.10), rgba(63,185,80,0.02));
+    border:1px solid rgba(63,185,80,0.4);border-radius:14px;padding:20px;
+  }
+  .live-card .stat{font-family:var(--mono);font-size:11px;letter-spacing:0.08em;
+    text-transform:uppercase;color:var(--live);margin-bottom:10px;display:flex;align-items:center;gap:7px;}
+  .url-box{
+    display:flex;align-items:center;gap:8px;background:var(--ink);
+    border:1px solid var(--line);border-radius:9px;padding:11px 13px;margin-bottom:12px;
+  }
+  .url-box a{font-family:var(--mono);font-size:13.5px;color:var(--text);
+    text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+  .url-box a:hover{color:var(--link);}
+  .icon-btn{background:var(--surface-2);border:1px solid var(--line);color:var(--muted);
+    border-radius:7px;padding:6px 9px;cursor:pointer;font-size:12px;flex:none;font-family:var(--mono);}
+  .icon-btn:hover{color:var(--text);border-color:var(--faint);}
+  .result-links{display:flex;gap:16px;margin-top:14px;flex-wrap:wrap;}
+  .result-links a{font-size:13px;color:var(--muted);text-decoration:none;font-family:var(--mono);}
+  .result-links a:hover{color:var(--link);}
+  .build-note{color:var(--muted);font-size:12px;margin-top:14px;line-height:1.5;}
+
+  .errbox{background:rgba(240,101,91,0.08);border:1px solid rgba(240,101,91,0.35);
+    border-radius:10px;padding:13px 15px;margin-top:14px;font-size:13px;color:#ffbdb6;
+    font-family:var(--mono);line-height:1.5;display:none;white-space:pre-wrap;}
+
+  .footnote{text-align:center;color:var(--faint);font-size:11.5px;margin-top:28px;font-family:var(--mono);}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <div class="mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#1a0d05" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4.5 16.5 3 21l4.5-1.5"/><path d="M12 15l-3-3c1.5-5 5-8 10-8 0 5-3 8.5-8 10z"/>
+        <path d="M9 12l-3 1.5M12 15l-1.5 3"/><circle cx="14.5" cy="9.5" r="1.3" fill="#1a0d05" stroke="none"/>
+      </svg>
+    </div>
+    <h1>Pages&nbsp;Launcher</h1>
+  </div>
+  <p class="tagline">Your GitHub Pages sites — open, update, or launch a new one.</p>
+
+  <!-- TOKEN SETUP -->
+  <div class="card" id="setup">
+    <label class="field-label">GitHub access token</label>
+    <div class="row">
+      <div class="grow"><input type="password" id="tokenInput" placeholder="ghp_… or github_pat_…" autocomplete="off" spellcheck="false"></div>
+      <button class="btn btn-ignite" id="connectBtn">Connect</button>
+    </div>
+    <div class="hint">
+      Create one here →
+      <a href="https://github.com/settings/tokens/new?scopes=repo,delete_repo&description=Pages%20Launcher" target="_blank" rel="noopener">github.com/settings/tokens</a>
+      (classic — check the <code style="font-family:var(--mono)">repo</code> box, and <code style="font-family:var(--mono)">delete_repo</code> too if you want to delete repos from here). Stored only in this browser.
+    </div>
+    <div class="errbox" id="setupErr"></div>
+  </div>
+
+  <!-- CONNECTED CHIP -->
+  <div class="card tight" id="connected">
+    <div class="chip">
+      <span class="dot"></span>
+      <img class="avatar" id="avatar" alt="">
+      <span>Connected as <strong id="ghUser"></strong></span>
+      <button class="change" id="changeBtn">Change token</button>
+    </div>
+  </div>
+
+  <!-- HOME: dashboard of all your repos -->
+  <div id="home" style="display:none">
+    <div class="row" style="margin-bottom:14px;gap:10px">
+      <div class="grow"><input type="text" id="repoSearch" placeholder="Search your sites…" autocomplete="off" spellcheck="false"></div>
+      <button class="btn btn-ghost icon-only" id="refreshRepos" title="Refresh list">↻</button>
+      <button class="btn btn-ghost" id="firebaseBtn" title="See which Firebase projects your sites use">🔥 Firebase</button>
+      <button class="btn btn-ignite" id="newSiteBtn">+ New site</button>
+    </div>
+    <div id="repoList" class="repolist"><div class="repo-empty">Loading your repositories…</div></div>
+  </div>
+
+  <!-- FIREBASE VIEW -->
+  <div id="fbView" style="display:none">
+    <div class="card tight" style="margin-bottom:16px">
+      <div class="chip">
+        <button class="back-btn" id="fbBack">← My sites</button>
+        <span class="rspacer" style="flex:1"></span>
+        <span id="deployWhat">Firebase usage</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <label class="field-label">Saved Firebase configs (vault)</label>
+      <p class="hint" style="margin-top:0">Kept in <b>this browser only</b> — never sent anywhere, never seen by Claude. Paste a <code style="font-family:var(--mono)">firebaseConfig</code> to save it, or scan below and hit <b>Save all to vault</b>. Then <b>New starter ↓</b> spins up a fresh single-file app already wired to that project, under its own namespace.</p>
+      <textarea id="vaultIn" placeholder='{ apiKey: "…", authDomain: "…", databaseURL: "…", projectId: "…" }' spellcheck="false"></textarea>
+      <button class="btn btn-ghost btn-block" id="vaultSaveBtn" style="margin-top:10px">Save config</button>
+      <div id="vaultMsg" class="hint" style="display:none;margin-top:8px"></div>
+      <div id="vaultList" style="margin-top:14px"></div>
+    </div>
+
+    <div class="card">
+      <label class="field-label">Which Firebase projects your sites use</label>
+      <p class="hint" style="margin-top:0">Reads the <code style="font-family:var(--mono)">firebaseConfig</code> embedded in each repo and groups sites by project. Compare this to your <a href="https://console.firebase.google.com" target="_blank" rel="noopener">Firebase console</a> — anything there but not here is likely unused.</p>
+      <button class="btn btn-ignite btn-block" id="fbScanBtn" style="margin-top:6px">Scan my repos for Firebase</button>
+      <div id="fbProgress" class="hint" style="display:none"></div>
+      <div id="fbResults" style="margin-top:14px"></div>
+    </div>
+
+    <div class="card">
+      <label class="field-label">Firebase starter snippet</label>
+      <p class="hint" style="margin-top:0">Paste a <code style="font-family:var(--mono)">firebaseConfig</code> from the Firebase console (Project settings → your web app) to get ready-to-drop init code for a new single-file site.</p>
+      <textarea id="fbConfigIn" placeholder='{ apiKey: "…", authDomain: "…", databaseURL: "…", projectId: "…" }' spellcheck="false"></textarea>
+      <button class="btn btn-ghost btn-block" id="fbGenBtn" style="margin-top:10px">Generate snippet</button>
+      <div id="fbSnippetWrap" style="display:none;margin-top:12px">
+        <div class="row" style="justify-content:flex-end;margin-bottom:6px"><button class="icon-btn" id="fbCopyBtn">Copy</button></div>
+        <pre id="fbSnippetOut" class="snippet"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEPLOY BANNER (shown while creating or updating) -->
+  <div class="card tight" id="deployBanner" style="display:none">
+    <div class="chip">
+      <button class="back-btn" id="backBtn">← My sites</button>
+      <span class="rspacer" style="flex:1"></span>
+      <span id="deployWhat"></span>
+    </div>
+  </div>
+
+  <!-- DROP ZONE -->
+  <div id="dropzone" class="disabled" style="display:none">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 15V3m0 0-4 4m4-4 4 4"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/>
+      </svg>
+    </div>
+    <div class="big">Drop files, a folder, or a .zip here</div>
+    <div class="small">folders keep their structure · a lone HTML file becomes <code style="font-family:var(--mono)">index.html</code></div>
+  </div>
+  <div class="pickrow" id="pickRow" style="display:none">
+    <button class="btn btn-ghost" id="pickFiles">Choose files</button>
+    <button class="btn btn-ghost" id="pickFolder">Choose folder</button>
+    <span class="pickhint">…or drag a folder / .zip onto the box above</span>
+  </div>
+  <div class="errbox" id="intakeErr" style="display:none"></div>
+  <input type="file" id="fileInput" multiple style="display:none">
+  <input type="file" id="folderInput" webkitdirectory directory multiple style="display:none">
+
+  <!-- MANIFEST + CONFIG -->
+  <div id="config">
+    <div class="card">
+      <label class="field-label">Files to deploy</label>
+      <div class="manifest" id="manifest"></div>
+      <div class="warnline" id="manifestWarn" style="display:none"></div>
+
+      <div style="height:18px"></div>
+      <div class="two">
+        <div>
+          <label class="field-label">Repository name</label>
+          <input type="text" id="repoName" spellcheck="false" autocomplete="off">
+        </div>
+        <div id="visBlock">
+          <label class="field-label">Visibility</label>
+          <div class="toggle">
+            <button id="visPublic" class="on" data-vis="public">Public</button>
+            <button id="visPrivate" data-vis="private">Private</button>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-ignite btn-block" id="launchBtn">Launch to Pages</button>
+      <div class="hint" id="visHint" style="display:none">Private Pages needs a GitHub Pro account.</div>
+
+      <!-- TELEMETRY -->
+      <div id="telemetry">
+        <div class="step" data-step="repo">
+          <div class="node"><svg viewBox="0 0 24 24" fill="none" stroke="#0E1116" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg></div>
+          <div><div class="label">Create repository</div><div class="detail" data-detail="repo"></div></div>
+        </div>
+        <div class="step" data-step="upload">
+          <div class="node"><svg viewBox="0 0 24 24" fill="none" stroke="#0E1116" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg></div>
+          <div><div class="label">Upload files</div><div class="detail" data-detail="upload"></div></div>
+        </div>
+        <div class="step" data-step="pages">
+          <div class="node"><svg viewBox="0 0 24 24" fill="none" stroke="#0E1116" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg></div>
+          <div><div class="label">Enable GitHub Pages</div><div class="detail" data-detail="pages"></div></div>
+        </div>
+        <div class="step" data-step="live">
+          <div class="node"><svg viewBox="0 0 24 24" fill="none" stroke="#0E1116" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg></div>
+          <div><div class="label">Liftoff</div><div class="detail" data-detail="live"></div></div>
+        </div>
+      </div>
+      <div class="errbox" id="launchErr"></div>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div id="result">
+    <div class="live-card">
+      <div class="stat"><span class="dot" style="width:8px;height:8px;border-radius:50%;background:var(--live);display:inline-block"></span> Live</div>
+      <div class="url-box">
+        <a id="liveUrl" href="#" target="_blank" rel="noopener"></a>
+        <button class="icon-btn" id="copyBtn">Copy</button>
+        <button class="icon-btn" id="openBtn">Open</button>
+      </div>
+      <div class="result-links">
+        <a id="repoLink" href="#" target="_blank" rel="noopener">↗ Repository</a>
+        <a id="settingsLink" href="#" target="_blank" rel="noopener">↗ Pages settings</a>
+      </div>
+      <div class="build-note">First build takes ~30–60 seconds. If the page 404s, give it a minute and refresh.</div>
+      <div class="build-note" id="commitList" style="display:none"></div>
+    </div>
+    <button class="btn btn-ghost btn-block" id="againBtn" style="margin-top:14px">Deploy another</button>
+  </div>
+
+  <div class="footnote">runs entirely in your browser · no server</div>
+
+  <!-- CONFIRM DELETE MODAL -->
+  <div class="modal-overlay" id="confirmModal" style="display:none">
+    <div class="modal">
+      <div class="modal-title">Delete repository?</div>
+      <div class="modal-body" id="confirmBody"></div>
+      <input type="text" id="confirmInput" placeholder="type the repo name to confirm" autocomplete="off" spellcheck="false">
+      <label class="modal-check"><input type="checkbox" id="confirmBackup" checked> Download the site's HTML first (backup)</label>
+      <div class="modal-msg" id="confirmMsg"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="confirmCancel">Cancel</button>
+        <button class="btn btn-danger" id="confirmDelete" disabled>Delete forever</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const API = "https://api.github.com";
+
+  // ---- tiny storage wrapper (survives artifact preview where localStorage throws) ----
+  let mem = {};
+  const store = {
+    get(k){ try{ return localStorage.getItem(k); }catch(e){ return mem[k] ?? null; } },
+    set(k,v){ try{ localStorage.setItem(k,v); }catch(e){ mem[k]=v; } },
+    del(k){ try{ localStorage.removeItem(k); }catch(e){ delete mem[k]; } }
+  };
+
+  const $ = s => document.querySelector(s);
+  let token = null;
+  let user = null;
+  let visibility = "public";
+  let files = [];      // {file, name, target}
+  let busy = false;
+  let mode = "new";        // "new" (create) | "update" (existing repo)
+  let targetRepo = null;   // repo name chosen in update mode
+  let repoCache = null;    // cached list of the user's repos
+  let bigSkipped = [];     // files skipped for being too large
+
+  // ---------- GitHub API helper ----------
+  async function gh(path, opts={}){
+    const res = await fetch(API + path, {
+      ...opts,
+      headers: {
+        "Authorization": "Bearer " + token,
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        ...(opts.headers||{})
+      }
+    });
+    return res;
+  }
+
+  // robust base64 for any bytes (text or binary), chunked to avoid stack overflow
+  function fileToBase64(file){
+    return new Promise((resolve, reject)=>{
+      const r = new FileReader();
+      r.onload = () => {
+        try{
+          const bytes = new Uint8Array(r.result);
+          let bin = ""; const CH = 0x8000;
+          for(let i=0;i<bytes.length;i+=CH){
+            bin += String.fromCharCode.apply(null, bytes.subarray(i, i+CH));
+          }
+          resolve(btoa(bin));
+        }catch(e){ reject(e); }
+      };
+      r.onerror = () => reject(new Error("Could not read file"));
+      r.readAsArrayBuffer(file);
+    });
+  }
+
+  const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+  // ---------- Connect ----------
+  async function connect(tok){
+    $("#setupErr").style.display = "none";
+    const res = await fetch(API + "/user", {
+      headers:{ "Authorization":"Bearer "+tok, "Accept":"application/vnd.github+json" }
+    });
+    if(res.status === 401) throw new Error("That token was rejected. Check it's correct and hasn't expired.");
+    if(!res.ok) throw new Error("Couldn't reach GitHub (" + res.status + "). Try again.");
+    const me = await res.json();
+    token = tok; user = me.login;
+    store.set("pl_token", tok);
+    $("#ghUser").textContent = "@" + me.login;
+    if(me.avatar_url) $("#avatar").src = me.avatar_url;
+    $("#setup").style.display = "none";
+    $("#connected").style.display = "block";
+    showHome();
+  }
+
+  $("#connectBtn").addEventListener("click", async ()=>{
+    const tok = $("#tokenInput").value.trim();
+    if(!tok){ showSetupErr("Paste a token first."); return; }
+    $("#connectBtn").disabled = true; $("#connectBtn").textContent = "Checking…";
+    try{ await connect(tok); }
+    catch(e){ showSetupErr(e.message); }
+    finally{ $("#connectBtn").disabled = false; $("#connectBtn").textContent = "Connect"; }
+  });
+  $("#tokenInput").addEventListener("keydown", e=>{ if(e.key==="Enter") $("#connectBtn").click(); });
+
+  function showSetupErr(m){ const b=$("#setupErr"); b.textContent=m; b.style.display="block"; }
+
+  $("#changeBtn").addEventListener("click", ()=>{
+    store.del("pl_token"); token=null; user=null; repoCache=null;
+    $("#connected").style.display="none";
+    $("#home").style.display="none";
+    $("#deployBanner").style.display="none";
+    $("#dropzone").style.display="none";
+    $("#pickRow").style.display="none";
+    $("#setup").style.display="block";
+    resetConfig();
+    $("#result").style.display="none";
+    $("#tokenInput").value="";
+  });
+
+  // ---------- Views: Home dashboard  <->  Deploy flow ----------
+  function showHome(){
+    mode = "new"; targetRepo = null;
+    $("#deployBanner").style.display = "none";
+    $("#dropzone").style.display = "none";
+    $("#pickRow").style.display = "none";
+    $("#intakeErr").style.display = "none";
+    $("#result").style.display = "none";
+    $("#fbView").style.display = "none";
+    resetConfig();
+    $("#home").style.display = "block";
+    loadRepos();
+  }
+
+  function enterDeploy(){
+    $("#home").style.display = "none";
+    $("#fbView").style.display = "none";
+    $("#deployBanner").style.display = "block";
+    $("#dropzone").style.display = "block";
+    $("#dropzone").classList.remove("disabled");
+    $("#pickRow").style.display = "flex";
+    $("#intakeErr").style.display = "none";
+    $("#result").style.display = "none";
+    resetConfig();
+  }
+
+  function startNew(){
+    mode = "new"; targetRepo = null;
+    enterDeploy();
+    $("#deployWhat").innerHTML = "New site";
+    $("#repoName").disabled = false;
+    $("#visBlock").style.display = "";
+    $("#launchBtn").textContent = "Launch to Pages";
+    $("#dropzone").scrollIntoView({behavior:"smooth", block:"center"});
+  }
+
+  function startUpdate(r){
+    mode = "update"; targetRepo = r.name;
+    enterDeploy();
+    $("#deployWhat").innerHTML = (r.has_pages ? "Updating " : "Publishing ") + "<strong>"+escapeHtml(user+"/"+r.name)+"</strong>";
+    $("#repoName").value = r.name;
+    $("#repoName").disabled = true;
+    $("#visBlock").style.display = "none";
+    $("#launchBtn").textContent = r.has_pages ? "Update site" : "Publish site";
+    $("#dropzone").scrollIntoView({behavior:"smooth", block:"center"});
+  }
+
+  $("#newSiteBtn").addEventListener("click", startNew);
+  $("#backBtn").addEventListener("click", showHome);
+
+  // ---------- Repo dashboard ----------
+  async function loadRepos(force){
+    const list = $("#repoList");
+    if(repoCache && !force){ renderRepoList(repoCache); return; }
+    list.innerHTML = '<div class="repo-empty">Loading your repositories…</div>';
+    try{
+      let all = [], page = 1;
+      while(page <= 5){
+        const res = await gh("/user/repos?per_page=100&affiliation=owner&sort=updated&page="+page);
+        if(!res.ok) throw await ghError(res, "load your repositories");
+        const batch = await res.json();
+        all = all.concat(batch);
+        if(batch.length < 100) break;
+        page++;
+      }
+      repoCache = all;
+      renderRepoList(all);
+    }catch(e){
+      list.innerHTML = '<div class="repo-empty">'+escapeHtml(e.message||"Couldn't load repositories.")+'</div>';
+    }
+  }
+
+  function renderRepoList(repos){
+    const q = ($("#repoSearch").value||"").trim().toLowerCase();
+    const filtered = repos.filter(r=> !q || r.name.toLowerCase().includes(q));
+    // live sites first, then the rest (API already returns most-recently-updated first)
+    filtered.sort((a,b)=> (b.has_pages?1:0) - (a.has_pages?1:0));
+    const list = $("#repoList");
+    if(!filtered.length){ list.innerHTML = '<div class="repo-empty">No repositories match that.</div>'; return; }
+    list.innerHTML = "";
+    filtered.forEach(r=>{
+      const url = "https://"+user+".github.io/"+r.name+"/";
+
+      const item = document.createElement("div");
+      item.className = "repo-item";
+
+      const when = r.pushed_at || r.updated_at;
+      const rel = relTime(when);
+      const stale = when && (Date.now() - new Date(when).getTime()) > 1000*60*60*24*180; // 6 months
+      const row = document.createElement("div");
+      row.className = "repo-row";
+      row.title = r.has_pages ? url : (user+"/"+r.name);
+      row.innerHTML =
+        '<span class="chev">▶</span>' +
+        '<span class="rlive '+(r.has_pages?"on":"off")+'" title="'+(r.has_pages?"Pages live":"No Pages yet")+'"></span>' +
+        '<span class="rname">'+escapeHtml(r.name)+'</span>' +
+        (r.private ? '<span class="rpriv">private</span>' : '') +
+        '<span class="rspacer"></span>' +
+        (rel ? '<span class="rtime'+(stale?' stale':'')+'" title="last pushed '+escapeHtml((when||"").slice(0,10))+'">'+rel+'</span>' : '') +
+        (r.has_pages ? '<span class="rurl">'+escapeHtml(url)+'</span>' : '<span class="rurl">not a site yet</span>');
+
+      // action buttons (stop propagation so they don't toggle the file view)
+      const ghBtn = document.createElement("button");
+      ghBtn.className = "repo-act ghbtn";
+      ghBtn.title = "View repository on GitHub";
+      ghBtn.innerHTML = ghMarkSvg;
+      ghBtn.addEventListener("click", e=>{ e.stopPropagation(); window.open("https://github.com/"+user+"/"+r.name, "_blank", "noopener"); });
+      row.appendChild(ghBtn);
+
+      if(r.has_pages){
+        const open = document.createElement("button");
+        open.className = "repo-act"; open.textContent = "Open ↗";
+        open.addEventListener("click", e=>{ e.stopPropagation(); window.open(url, "_blank", "noopener"); });
+        row.appendChild(open);
+      }
+      const upd = document.createElement("button");
+      upd.className = "repo-act primary"; upd.textContent = r.has_pages ? "Update" : "Publish";
+      upd.addEventListener("click", e=>{ e.stopPropagation(); startUpdate(r); });
+      row.appendChild(upd);
+
+      const del = document.createElement("button");
+      del.className = "repo-act danger"; del.title = "Delete this repository"; del.innerHTML = trashSvg;
+      del.addEventListener("click", e=>{ e.stopPropagation(); askDeleteRepo(r.name); });
+      row.appendChild(del);
+
+      // expandable file panel
+      const panel = document.createElement("div");
+      panel.className = "repo-files";
+      panel.style.display = "none";
+
+      row.addEventListener("click", ()=>{
+        const isOpen = item.classList.toggle("open");
+        panel.style.display = isOpen ? "block" : "none";
+        if(isOpen && !panel.dataset.loaded){ browseFiles(r, "", panel); }
+      });
+
+      item.appendChild(row);
+      item.appendChild(panel);
+      list.appendChild(item);
+    });
+  }
+
+  // ---------- Repo file browser ----------
+  const filesCache = {}; // key: repo::path  ->  array of entries
+
+  async function browseFiles(r, path, panel){
+    panel.dataset.loaded = "1";
+    panel.innerHTML = '<div class="fb-msg">Loading files…</div>';
+    const key = r.name + "::" + path;
+    try{
+      let entries = filesCache[key];
+      if(!entries){
+        const res = await gh("/repos/"+user+"/"+r.name+"/contents/"+encodeURI(path));
+        if(res.status === 404){ panel.innerHTML = '<div class="fb-msg">This repository is empty.</div>'; return; }
+        if(!res.ok) throw await ghError(res, "list files");
+        entries = await res.json();
+        if(!Array.isArray(entries)) entries = [entries]; // a file path returns an object
+        filesCache[key] = entries;
+      }
+      renderFiles(r, path, entries, panel);
+    }catch(e){
+      panel.innerHTML = '<div class="fb-msg">'+escapeHtml(e.message||"Couldn't load files.")+'</div>';
+    }
+  }
+
+  function relTime(iso){
+    if(!iso) return "";
+    const s = Math.max(0, (Date.now() - new Date(iso).getTime())/1000);
+    if(s < 86400) return "today";
+    const d = Math.floor(s/86400);
+    if(d < 7) return d+"d";
+    if(d < 30) return Math.floor(d/7)+"w";
+    if(d < 365) return Math.floor(d/30)+"mo";
+    return Math.floor(d/365)+"y";
+  }
+
+  function fmtSize(n){
+    if(n==null) return "";
+    if(n < 1024) return n + " B";
+    if(n < 1024*1024) return (n/1024).toFixed(n<10240?1:0) + " KB";
+    return (n/1048576).toFixed(1) + " MB";
+  }
+
+  const fileSvg = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>';
+  const dirSvg  = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+  const ghMarkSvg = '<svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.76-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>';
+  const trashSvg = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg>';
+
+  function renderFiles(r, path, entries, panel){
+    panel.innerHTML = "";
+
+    // breadcrumb
+    const crumb = document.createElement("div");
+    crumb.className = "fb-crumb";
+    const parts = path ? path.split("/") : [];
+    const root = document.createElement("span");
+    root.className = "seg" + (parts.length? "" : " cur");
+    root.textContent = r.name;
+    if(parts.length) root.addEventListener("click", ()=> browseFiles(r, "", panel));
+    crumb.appendChild(root);
+    let acc = "";
+    parts.forEach((p,i)=>{
+      crumb.appendChild(document.createTextNode(" / "));
+      acc = acc ? acc+"/"+p : p;
+      const seg = document.createElement("span");
+      const last = i === parts.length-1;
+      seg.className = "seg" + (last ? " cur" : "");
+      seg.textContent = p;
+      if(!last){ const target = acc; seg.addEventListener("click", ()=> browseFiles(r, target, panel)); }
+      crumb.appendChild(seg);
+    });
+    panel.appendChild(crumb);
+
+    if(!entries.length){ const m=document.createElement("div"); m.className="fb-msg"; m.textContent="Empty folder."; panel.appendChild(m); return; }
+
+    // dirs first, then files, each alphabetical
+    entries.sort((a,b)=>{
+      if(a.type!==b.type) return a.type==="dir" ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    entries.forEach(en=>{
+      const fr = document.createElement("div");
+      fr.className = "file-row";
+      const isDir = en.type === "dir";
+      const isIndex = en.name.toLowerCase() === "index.html";
+      fr.innerHTML =
+        '<span class="ficon">'+(isDir?dirSvg:fileSvg)+'</span>' +
+        '<span class="fname'+(isIndex?" index":"")+'">'+escapeHtml(en.name)+'</span>' +
+        '<span class="fspacer"></span>' +
+        (isDir ? '' : '<span class="fsize">'+fmtSize(en.size)+'</span>');
+      fr.addEventListener("click", ()=>{
+        if(isDir){ browseFiles(r, en.path, panel); }
+        else if(en.html_url){ window.open(en.html_url, "_blank", "noopener"); }
+      });
+      panel.appendChild(fr);
+    });
+  }
+
+  $("#repoSearch").addEventListener("input", ()=>{ if(repoCache) renderRepoList(repoCache); });
+  $("#refreshRepos").addEventListener("click", ()=> loadRepos(true));
+
+  // ---------- Delete a repository (type-to-confirm) ----------
+  let pendingDelete = null;
+  function askDeleteRepo(name){
+    pendingDelete = name;
+    $("#confirmBody").innerHTML = "This permanently deletes <b>"+escapeHtml(user+"/"+name)+"</b> and its GitHub Pages site. GitHub keeps it recoverable for a short window, but treat this as gone.";
+    $("#confirmInput").value = "";
+    $("#confirmMsg").textContent = "";
+    $("#confirmDelete").disabled = true;
+    $("#confirmModal").style.display = "grid";
+    $("#confirmInput").focus();
+  }
+  $("#confirmInput").addEventListener("input", ()=>{
+    $("#confirmDelete").disabled = ($("#confirmInput").value.trim() !== pendingDelete);
+  });
+  $("#confirmCancel").addEventListener("click", ()=>{ $("#confirmModal").style.display="none"; pendingDelete=null; });
+  $("#confirmModal").addEventListener("click", e=>{ if(e.target.id==="confirmModal"){ $("#confirmModal").style.display="none"; pendingDelete=null; } });
+
+  $("#confirmDelete").addEventListener("click", async ()=>{
+    if(!pendingDelete) return;
+    const name = pendingDelete;
+    const btn = $("#confirmDelete"); btn.disabled = true; btn.textContent = "Deleting…";
+    $("#confirmMsg").textContent = "";
+    try{
+      // optional backup of the site's HTML before it's gone
+      if($("#confirmBackup").checked){
+        btn.textContent = "Backing up…";
+        try{
+          const html = await fetchRepoHtml(name);
+          if(html){
+            const blob = new Blob([html], {type:"text/html"});
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = name + "-index.html";
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+          }
+        }catch(e){ /* no backup available — proceed */ }
+        btn.textContent = "Deleting…";
+      }
+      const res = await gh("/repos/"+user+"/"+name, { method:"DELETE" });
+      if(res.status === 204 || res.status === 404){
+        if(repoCache) repoCache = repoCache.filter(r=>r.name!==name);
+        renderRepoList(repoCache||[]);
+        $("#confirmModal").style.display = "none"; pendingDelete = null;
+      } else if(res.status === 403){
+        $("#confirmMsg").textContent = "Token lacks the delete_repo scope. Regenerate it with that box checked, then Change token.";
+      } else {
+        const e = await ghError(res, "delete the repository");
+        $("#confirmMsg").textContent = e.message;
+      }
+    }catch(e){
+      $("#confirmMsg").textContent = e.message || "Delete failed.";
+    }finally{
+      btn.textContent = "Delete forever";
+      btn.disabled = ($("#confirmInput").value.trim() !== pendingDelete);
+    }
+  });
+
+  // ---------- Firebase view ----------
+  let fbScanned = null; // cache of last scan
+
+  function showFirebase(){
+    $("#home").style.display = "none";
+    $("#deployBanner").style.display = "none";
+    $("#dropzone").style.display = "none";
+    $("#pickRow").style.display = "none";
+    $("#intakeErr").style.display = "none";
+    $("#result").style.display = "none";
+    $("#fbView").style.display = "block";
+    renderVault();
+    window.scrollTo({top:0, behavior:"smooth"});
+  }
+  $("#firebaseBtn").addEventListener("click", showFirebase);
+  $("#fbBack").addEventListener("click", showHome);
+
+  // pull the deployed HTML for a repo: index.html if present, else the first .html in root
+  async function fetchRepoHtml(repo){
+    const rawHeader = { headers:{ "Accept":"application/vnd.github.raw" } };
+    let res = await gh("/repos/"+user+"/"+repo+"/contents/index.html", rawHeader);
+    if(res.ok) return await res.text();
+    if(res.status !== 404) return null;
+    // no index.html — look for another html file in the root
+    const root = await gh("/repos/"+user+"/"+repo+"/contents/");
+    if(!root.ok) return null;
+    let entries; try{ entries = await root.json(); }catch(e){ return null; }
+    if(!Array.isArray(entries)) return null;
+    const html = entries.find(e=> e.type==="file" && /\.html?$/i.test(e.name));
+    if(!html) return null;
+    res = await gh("/repos/"+user+"/"+repo+"/contents/"+encodeURI(html.path), rawHeader);
+    return res.ok ? await res.text() : null;
+  }
+
+  // Pull every firebaseConfig field we can find anywhere in the text, and
+  // validate the project id so placeholders (YOUR_PROJECT, "…") are rejected.
+  function parseFullConfig(text){
+    if(!text) return null;
+    const grab = k => { const m = text.match(new RegExp(k+"\\s*[:=]\\s*[\"']([^\"']+)[\"']")); return m ? m[1] : null; };
+    const valid = v => v && /^[a-z][a-z0-9-]{3,29}$/.test(v);
+    const cfg = {};
+    ["apiKey","authDomain","databaseURL","projectId","storageBucket","messagingSenderId","appId","measurementId"]
+      .forEach(k => { const v = grab(k); if(v) cfg[k] = v; });
+    let pid = null;
+    if(valid(cfg.projectId)) pid = cfg.projectId;
+    else if(cfg.authDomain){ const a = cfg.authDomain.replace(/\.(firebaseapp\.com|web\.app)$/,""); if(valid(a)) pid = a; }
+    if(!pid && cfg.databaseURL){
+      const d = cfg.databaseURL.replace(/^https?:\/\//,"").replace(/-default-rtdb.*$/,"").replace(/\.firebaseio\.com.*$/,"").replace(/\.firebasedatabase\.app.*$/,"").replace(/\..*$/,"");
+      if(valid(d)) pid = d;
+    }
+    if(!pid) return null;
+    cfg.projectId = pid;
+    if(cfg.databaseURL && !/^https?:\/\/[a-z0-9-]+.*firebase(io\.com|database\.app)/i.test(cfg.databaseURL)) delete cfg.databaseURL;
+    return cfg;
+  }
+
+  function extractFirebase(text){
+    const cfg = parseFullConfig(text);
+    if(!cfg) return null;
+    return { projectId: cfg.projectId, databaseURL: cfg.databaseURL || null, config: cfg };
+  }
+
+  // ---------- Config vault (stored in this browser only) ----------
+  function vaultGet(){ try{ return JSON.parse(store.get("pl_vault")||"[]"); }catch(e){ return []; } }
+  function vaultSet(arr){ store.set("pl_vault", JSON.stringify(arr)); }
+  function vaultSave(cfg){
+    if(!cfg || !cfg.projectId) return false;
+    const arr = vaultGet();
+    const i = arr.findIndex(c => c.projectId === cfg.projectId);
+    const entry = Object.assign({}, arr[i]||{}, cfg, { savedAt: Date.now() });
+    if(i >= 0) arr[i] = entry; else arr.push(entry);
+    vaultSet(arr);
+    return true;
+  }
+  function vaultRemove(pid){ vaultSet(vaultGet().filter(c => c.projectId !== pid)); }
+
+  function cfgToText(cfg){
+    const keys = ["apiKey","authDomain","databaseURL","projectId","storageBucket","messagingSenderId","appId"];
+    return "{\n" + keys.filter(k=>cfg[k]).map(k => '    '+k+': "'+cfg[k]+'"').join(",\n") + "\n  }";
+  }
+
+  function buildSnippet(objText){
+    const V = "10.12.0";
+    return '<!-- Firebase (compat build — works in a single-file page) -->\n' +
+      '<script src="https://www.gstatic.com/firebasejs/'+V+'/firebase-app-compat.js"></scr'+'ipt>\n' +
+      '<script src="https://www.gstatic.com/firebasejs/'+V+'/firebase-database-compat.js"></scr'+'ipt>\n' +
+      '<script>\n' +
+      '  const firebaseConfig = ' + objText + ';\n' +
+      '  firebase.initializeApp(firebaseConfig);\n' +
+      '  const db = firebase.database();\n' +
+      '  // example: db.ref("messages").on("value", s => console.log(s.val()));\n' +
+      '</scr'+'ipt>';
+  }
+
+  function suggestNs(cfg){ return ((cfg.projectId||"app").replace(/-[a-z0-9]{4,6}$/,"").replace(/[^a-z0-9-]/g,"")) || "app"; }
+
+  // A complete, ready-to-build single-file app wired to a shared project under its own branch.
+  function buildStarter(cfg, ns){
+    const V = "10.12.0";
+    const t = "<"+"title>"+ns+"</title>";
+    return '<!DOCTYPE html>\n<html lang="en">\n<head>\n' +
+'<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n' + t + '\n' +
+'<style>\n' +
+'  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:640px;margin:40px auto;padding:0 18px;background:#0f1115;color:#e6e8ec}\n' +
+'  h1{font-size:22px}code{background:#1a1d24;padding:2px 6px;border-radius:5px}\n' +
+'  input{width:100%;box-sizing:border-box;padding:12px;font-size:16px;border-radius:8px;border:1px solid #2a2e37;background:#161922;color:#e6e8ec;margin-top:10px}\n' +
+'  .muted{color:#8b93a1;font-size:14px}\n' +
+'</style>\n</head>\n<body>\n' +
+'<h1>'+ns+'</h1>\n' +
+'<p class="muted">Synced through Firebase under the <code>'+ns+'</code> branch of your shared project. Open this file in two tabs to watch it sync.</p>\n' +
+'<input id="msg" placeholder="type something — it syncs live">\n' +
+'<script src="https://www.gstatic.com/firebasejs/'+V+'/firebase-app-compat.js"></scr'+'ipt>\n' +
+'<script src="https://www.gstatic.com/firebasejs/'+V+'/firebase-database-compat.js"></scr'+'ipt>\n' +
+'<script>\n' +
+'  const firebaseConfig = ' + cfgToText(cfg) + ';\n' +
+'  firebase.initializeApp(firebaseConfig);\n' +
+'  const db = firebase.database();\n' +
+'\n' +
+'  // Everything this app does lives under one branch, so it never collides\n' +
+'  // with your other apps sharing this same project.\n' +
+'  const NS = "' + ns + '";\n' +
+'  const root = db.ref(NS);\n' +
+'\n' +
+'  // --- demo: keep one field in sync (delete once you start building) ---\n' +
+'  const box = document.getElementById("msg");\n' +
+'  root.child("demo").on("value", s => { const v = s.val() || ""; if(document.activeElement !== box) box.value = v; });\n' +
+'  box.addEventListener("input", () => root.child("demo").set(box.value));\n' +
+'\n' +
+'  // Build your app on `root`, e.g. root.child("rooms"), root.child("players")...\n' +
+'</scr'+'ipt>\n</body>\n</html>\n';
+  }
+
+  function mkBtn(label, cls, fn){ const b=document.createElement("button"); b.className=cls; b.textContent=label; b.addEventListener("click",fn); return b; }
+  function copyText(txt, btnEl){
+    const o = btnEl.textContent, done = ()=>{ btnEl.textContent="Copied"; setTimeout(()=>btnEl.textContent=o,1400); };
+    if(navigator.clipboard) navigator.clipboard.writeText(txt).then(done).catch(fb); else fb();
+    function fb(){ const t=document.createElement("textarea"); t.value=txt; document.body.appendChild(t); t.select(); try{document.execCommand("copy");}catch(e){} t.remove(); done(); }
+  }
+  function makeStarter(cfg){
+    let ns = prompt("Namespace for this new app (its own branch inside the shared database):", suggestNs(cfg));
+    if(ns == null) return;
+    ns = ns.trim().replace(/[^a-zA-Z0-9_-]/g,"-").replace(/^-+|-+$/g,"") || "app";
+    const blob = new Blob([buildStarter(cfg, ns)], {type:"text/html"});
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = ns+"-starter.html";
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+  }
+
+  function renderVault(){
+    const list = $("#vaultList"); if(!list) return;
+    const arr = vaultGet(); list.innerHTML = "";
+    if(!arr.length){ list.innerHTML = '<div class="fb-none">No saved configs yet — paste one above, or scan below and click “Save all to vault”.</div>'; return; }
+    arr.sort((a,b)=> a.projectId.localeCompare(b.projectId));
+    arr.forEach(cfg=>{
+      const card = document.createElement("div"); card.className = "fb-proj";
+      card.innerHTML =
+        '<div class="fp-head"><span class="fp-id">'+escapeHtml(cfg.projectId)+'</span></div>' +
+        '<div class="fp-db">'+escapeHtml(cfg.databaseURL || "(no databaseURL — realtime features won\'t work until you add one)")+'</div>' +
+        '<div class="fp-actions"></div>';
+      const actions = card.querySelector(".fp-actions");
+      const copyBtn = mkBtn("Copy init code","repo-act",()=> copyText(buildSnippet(cfgToText(cfg)), copyBtn));
+      actions.appendChild(mkBtn("New starter ↓","repo-act",()=> makeStarter(cfg)));
+      actions.appendChild(copyBtn);
+      actions.appendChild(mkBtn("Console ↗","repo-act",()=> window.open("https://console.firebase.google.com/project/"+encodeURIComponent(cfg.projectId)+"/overview","_blank","noopener")));
+      actions.appendChild(mkBtn("Remove","repo-act danger",()=>{ vaultRemove(cfg.projectId); renderVault(); }));
+      list.appendChild(card);
+    });
+  }
+
+  $("#vaultSaveBtn") && $("#vaultSaveBtn").addEventListener("click", ()=>{
+    const raw = $("#vaultIn").value.trim(); const msg = $("#vaultMsg");
+    if(!raw) return;
+    const cfg = parseFullConfig(raw);
+    if(!cfg){ msg.style.display="block"; msg.textContent="Couldn't find a valid firebaseConfig there (need at least a projectId)."; return; }
+    vaultSave(cfg);
+    $("#vaultIn").value = "";
+    msg.style.display = "block";
+    msg.textContent = "Saved "+cfg.projectId + (cfg.databaseURL ? "" : " — no databaseURL found; add it for realtime features.");
+    renderVault();
+  });
+
+  $("#fbScanBtn").addEventListener("click", scanFirebase);
+
+  async function scanFirebase(){
+    const btn = $("#fbScanBtn"); btn.disabled = true; btn.textContent = "Scanning…";
+    $("#fbResults").innerHTML = "";
+    const prog = $("#fbProgress"); prog.style.display = "block";
+    try{
+      if(!repoCache) await loadRepos();
+      const repos = repoCache || [];
+      const map = {};        // projectId -> { databaseURL, repos:[] }
+      const noneList = [];   // repos with no firebase found
+      for(let i=0;i<repos.length;i++){
+        prog.textContent = "Reading "+(i+1)+" / "+repos.length+" — "+repos[i].name;
+        let text = null;
+        try{ text = await fetchRepoHtml(repos[i].name); }catch(e){}
+        const fb = extractFirebase(text);
+        if(fb){
+          const key = fb.projectId;
+          if(!map[key]) map[key] = { databaseURL: fb.databaseURL, repos: [], config: fb.config };
+          if(!map[key].databaseURL && fb.databaseURL) map[key].databaseURL = fb.databaseURL;
+          if(!map[key].config && fb.config) map[key].config = fb.config;
+          map[key].repos.push(repos[i].name);
+        } else {
+          noneList.push(repos[i].name);
+        }
+      }
+      fbScanned = { map, noneList };
+      prog.style.display = "none";
+      renderFbResults(map, noneList);
+    }catch(e){
+      prog.style.display = "none";
+      $("#fbResults").innerHTML = '<div class="fb-none">'+escapeHtml(e.message||"Scan failed.")+'</div>';
+    }finally{
+      btn.disabled = false; btn.textContent = "Re-scan my repos for Firebase";
+    }
+  }
+
+  let fbCards = []; // {id, db, checkBtn, status, card}
+
+  function renderFbResults(map, noneList){
+    const out = $("#fbResults");
+    out.innerHTML = "";
+    fbCards = [];
+    const ids = Object.keys(map).sort((a,b)=> map[b].repos.length - map[a].repos.length);
+    if(!ids.length){
+      out.innerHTML = '<div class="fb-none">No Firebase config found in any repo.</div>';
+      return;
+    }
+
+    // summary + check-all controls
+    const bar = document.createElement("div");
+    bar.className = "row"; bar.style.marginBottom = "12px"; bar.style.gap = "10px";
+    bar.innerHTML = '<div class="fb-summary grow" id="fbSummary">'+ids.length+' project'+(ids.length>1?'s':'')+' used by your sites</div>';
+    const checkAll = document.createElement("button");
+    checkAll.className = "btn btn-ghost"; checkAll.id = "fbCheckAll"; checkAll.textContent = "Check all databases";
+    bar.appendChild(checkAll);
+    const saveAll = document.createElement("button");
+    saveAll.className = "btn btn-ghost"; saveAll.textContent = "Save all to vault";
+    saveAll.addEventListener("click", ()=>{
+      let n = 0; ids.forEach(id=>{ if(map[id].config && vaultSave(map[id].config)) n++; });
+      saveAll.textContent = n ? ("Saved "+n+" ✓") : "Nothing to save";
+      setTimeout(()=> saveAll.textContent = "Save all to vault", 1800);
+      renderVault();
+    });
+    bar.appendChild(saveAll);
+    out.appendChild(bar);
+    checkAll.addEventListener("click", checkAllDbs);
+
+    ids.forEach(id=>{
+      const p = map[id];
+      const card = document.createElement("div");
+      card.className = "fb-proj";
+      const dbShown = p.databaseURL || ("https://"+id+"-default-rtdb.firebaseio.com");
+      card.innerHTML =
+        '<div class="fp-head"><span class="fp-id">'+escapeHtml(id)+'</span>' +
+        '<span class="fp-count">'+p.repos.length+' site'+(p.repos.length>1?'s':'')+'</span></div>' +
+        '<div class="fp-db">'+escapeHtml(dbShown)+'</div>' +
+        '<div class="fp-sites">'+p.repos.map(r=>'<span class="fp-site">'+escapeHtml(r)+'</span>').join('')+'</div>' +
+        '<div class="fp-actions"></div>';
+      const actions = card.querySelector(".fp-actions");
+      const checkBtn = document.createElement("button");
+      checkBtn.className = "repo-act"; checkBtn.textContent = "Check database";
+      const status = document.createElement("span"); status.className = "fp-status";
+      const consoleBtn = document.createElement("button");
+      consoleBtn.className = "repo-act"; consoleBtn.textContent = "Console ↗";
+      consoleBtn.addEventListener("click", ()=> window.open("https://console.firebase.google.com/project/"+encodeURIComponent(id)+"/overview", "_blank", "noopener"));
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "repo-act danger"; deleteBtn.textContent = "Delete ↗"; deleteBtn.title = "Open this project's delete page in the Firebase console";
+      deleteBtn.style.padding = "6px 11px";
+      deleteBtn.addEventListener("click", ()=> window.open("https://console.firebase.google.com/project/"+encodeURIComponent(id)+"/settings/general", "_blank", "noopener"));
+      checkBtn.addEventListener("click", ()=> pingDb(id, p.databaseURL, checkBtn, status, card));
+      actions.appendChild(checkBtn);
+      actions.appendChild(consoleBtn);
+      actions.appendChild(deleteBtn);
+      actions.appendChild(status);
+      out.appendChild(card);
+      fbCards.push({ id, db: p.databaseURL, checkBtn, status, card });
+    });
+
+    if(noneList.length){
+      const none = document.createElement("div");
+      none.className = "fb-none";
+      none.textContent = "No Firebase in: " + noneList.join(", ");
+      out.appendChild(none);
+    }
+  }
+
+  async function checkAllDbs(){
+    const btn = $("#fbCheckAll"); btn.disabled = true;
+    const tally = { used:0, empty:0, locked:0, gone:0 };
+    for(let i=0;i<fbCards.length;i++){
+      btn.textContent = "Checking "+(i+1)+"/"+fbCards.length+"…";
+      const c = fbCards[i];
+      const cat = await pingDb(c.id, c.db, c.checkBtn, c.status, c.card);
+      if(tally[cat]!=null) tally[cat]++;
+    }
+    btn.disabled = false; btn.textContent = "Re-check all databases";
+    const s = $("#fbSummary");
+    if(s){
+      const parts = [];
+      if(tally.used)   parts.push('<b style="color:var(--live)">'+tally.used+'</b> with data');
+      if(tally.empty)  parts.push('<b style="color:#e0a44a">'+tally.empty+'</b> empty (safe to delete)');
+      if(tally.locked) parts.push('<b>'+tally.locked+'</b> locked');
+      if(tally.gone)   parts.push('<b style="color:var(--danger)">'+tally.gone+'</b> no DB');
+      s.innerHTML = parts.join(" · ") || "Checked all databases";
+    }
+  }
+
+  async function pingDb(projectId, databaseURL, btn, status, card){
+    btn.disabled = true; const old = btn.textContent; btn.textContent = "Checking…";
+    status.className = "fp-status"; status.textContent = "";
+    if(card) card.classList.remove("candidate");
+    let category = "gone";
+    // candidate REST endpoints for the Realtime Database
+    const bases = [];
+    if(databaseURL) bases.push(databaseURL.replace(/\/$/,""));
+    bases.push("https://"+projectId+"-default-rtdb.firebaseio.com");
+    bases.push("https://"+projectId+".firebaseio.com");
+    let done = false;
+    for(const base of [...new Set(bases)]){
+      try{
+        const res = await fetch(base+"/.json?shallow=true");
+        if(res.status === 401 || res.status === 403){
+          status.className = "fp-status locked"; status.textContent = "● exists — rules require auth (can't read)";
+          category = "locked"; done = true; break;
+        }
+        if(res.ok){
+          let data = null; try{ data = await res.json(); }catch(e){}
+          if(data && typeof data === "object" && Object.keys(data).length){
+            status.className = "fp-status used"; status.textContent = "● has data ("+Object.keys(data).length+" top-level keys)";
+            category = "used";
+          } else if(data && typeof data !== "object"){
+            status.className = "fp-status used"; status.textContent = "● has data";
+            category = "used";
+          } else {
+            status.className = "fp-status empty"; status.textContent = "● reachable but empty";
+            category = "empty";
+          }
+          done = true; break;
+        }
+      }catch(e){ /* try next candidate */ }
+    }
+    if(!done){ status.className = "fp-status gone"; status.textContent = "● no database reachable (may be Firestore, or none)"; category = "gone"; }
+    if(card && (category === "empty" || category === "gone")) card.classList.add("candidate");
+    btn.disabled = false; btn.textContent = old;
+    return category;
+  }
+
+  // ---------- Firebase starter snippet ----------
+  $("#fbGenBtn").addEventListener("click", ()=>{
+    const raw = $("#fbConfigIn").value.trim();
+    if(!raw){ return; }
+    // grab the {...} object if they pasted extra code around it
+    const m = raw.match(/\{[\s\S]*\}/);
+    const objText = m ? m[0] : raw;
+    $("#fbSnippetOut").textContent = buildSnippet(objText);
+    $("#fbSnippetWrap").style.display = "block";
+  });
+
+  $("#fbCopyBtn").addEventListener("click", ()=>{
+    const txt = $("#fbSnippetOut").textContent;
+    const done = ()=>{ $("#fbCopyBtn").textContent="Copied"; setTimeout(()=>$("#fbCopyBtn").textContent="Copy",1400); };
+    if(navigator.clipboard) navigator.clipboard.writeText(txt).then(done).catch(fallback); else fallback();
+    function fallback(){ const t=document.createElement("textarea"); t.value=txt; document.body.appendChild(t); t.select(); try{document.execCommand("copy");}catch(e){} t.remove(); done(); }
+  });
+
+  // ---------- File intake ----------
+  // Entry shape used everywhere below: { file:Blob, display:String, target:String, size:Number }
+  const dz = $("#dropzone");
+  const MAX_FILE = 25 * 1024 * 1024; // 25 MB per file (GitHub blob API is happier well under 100MB)
+
+  dz.addEventListener("click", ()=>{ if(!dz.classList.contains("disabled")) $("#fileInput").click(); });
+  $("#pickFiles").addEventListener("click", ()=> $("#fileInput").click());
+  $("#pickFolder").addEventListener("click", ()=> $("#folderInput").click());
+
+  $("#fileInput").addEventListener("change", e=>{
+    intake([...e.target.files].map(f=>({ path:f.name, file:f })));
+  });
+  // webkitdirectory: strip the chosen top folder so its CONTENTS land at the repo root
+  $("#folderInput").addEventListener("change", e=>{
+    const raw = [...e.target.files].map(f=>{
+      const rp = f.webkitRelativePath || f.name;
+      const path = rp.split("/").slice(1).join("/") || f.name;
+      return { path, file:f };
+    });
+    intake(raw);
+  });
+
+  ["dragover","dragenter"].forEach(ev=>dz.addEventListener(ev, e=>{ e.preventDefault(); if(!dz.classList.contains("disabled")) dz.classList.add("drag"); }));
+  ["dragleave","dragend"].forEach(ev=>dz.addEventListener(ev, ()=>dz.classList.remove("drag")));
+  dz.addEventListener("drop", async e=>{
+    e.preventDefault(); dz.classList.remove("drag");
+    if(dz.classList.contains("disabled")) return;
+    try{
+      const raw = await gatherFromDataTransfer(e.dataTransfer);
+      intake(raw);
+    }catch(err){ intakeErr("Couldn't read that drop: " + (err.message||err)); }
+  });
+
+  const isHtml = n => /\.(html?|htm)$/i.test(n);
+
+  function intakeErr(msg){
+    const b = $("#intakeErr"); b.textContent = msg; b.style.display = "block";
+  }
+
+  // Walk a drag-drop payload, descending into folders via the entries API.
+  // Top-level folders are stripped so their contents land at the repo root.
+  async function gatherFromDataTransfer(dt){
+    const items = dt.items ? [...dt.items] : [];
+    const entries = items.map(it => it.webkitGetAsEntry && it.webkitGetAsEntry()).filter(Boolean);
+    if(!entries.length){
+      // browser without the entries API — fall back to a flat file list
+      return [...(dt.files||[])].map(f=>({ path:f.name, file:f }));
+    }
+    const out = [];
+    for(const ent of entries){
+      if(ent.isDirectory){
+        const kids = await readAllEntries(ent.createReader());
+        for(const k of kids) await walkEntry(k, "", out);   // strip the dropped folder's own name
+      } else {
+        await walkEntry(ent, "", out);
+      }
+    }
+    return out;
+  }
+  function readAllEntries(reader){
+    return new Promise(resolve=>{
+      const all = [];
+      const rd = ()=> reader.readEntries(b=>{ if(!b.length) resolve(all); else { all.push(...b); rd(); } }, ()=>resolve(all));
+      rd();
+    });
+  }
+  function walkEntry(entry, prefix, out){
+    return new Promise(resolve=>{
+      if(entry.isFile){
+        entry.file(f=>{ out.push({ path: prefix + entry.name, file:f }); resolve(); }, ()=>resolve());
+      } else if(entry.isDirectory){
+        readAllEntries(entry.createReader()).then(async kids=>{
+          for(const k of kids) await walkEntry(k, prefix + entry.name + "/", out);
+          resolve();
+        });
+      } else resolve();
+    });
+  }
+
+  // Unpack any .zip in the raw list, in the browser, preserving inner paths.
+  // A single top-level folder inside the zip is stripped.
+  async function expandZips(raw){
+    const out = [];
+    for(const e of raw){
+      if(/\.zip$/i.test(e.path)){
+        if(!window.JSZip) throw new Error("Zip support didn't load (JSZip needs an internet connection). Unzip it and drop the folder instead.");
+        const zip = await JSZip.loadAsync(e.file);
+        const names = Object.keys(zip.files).filter(n=> !zip.files[n].dir);
+        const top = singleTopFolder(names);
+        for(const n of names){
+          let path = top ? n.slice(top.length) : n;
+          path = path.replace(/^\/+/,"");
+          if(!path) continue;
+          const blob = await zip.files[n].async("blob");
+          out.push({ path, file: blob });
+        }
+      } else {
+        out.push(e);
+      }
+    }
+    return out;
+  }
+  function singleTopFolder(names){
+    const real = names.filter(n=> !/^__MACOSX\//.test(n));
+    if(!real.length || !real.every(n=> n.includes("/"))) return null;
+    const first = real[0].split("/")[0];
+    return real.every(n=> n.split("/")[0] === first) ? first + "/" : null;
+  }
+
+  // Turn raw {path,file} into finalized entries: drop junk, dedupe, and rename a
+  // lone root-level HTML file to index.html for convenience.
+  function finalizeEntries(raw){
+    raw = raw
+      .filter(e=> e.path)
+      .map(e=> ({ path: e.path.replace(/\\/g,"/").replace(/^\.?\//,""), file: e.file }))
+      .filter(e=> e.path && !/(^|\/)\.DS_Store$/i.test(e.path) && !/^__MACOSX\//i.test(e.path) && !/(^|\/)Thumbs\.db$/i.test(e.path) && !/(^|\/)\.git\//i.test(e.path));
+    const lone = raw.length === 1 && isHtml(raw[0].path) && !raw[0].path.includes("/") && raw[0].path.toLowerCase() !== "index.html";
+    const map = new Map();
+    raw.forEach(e=>{
+      const target = lone ? "index.html" : e.path;
+      map.set(target, { file:e.file, display:e.path, target, size: (e.file && e.file.size) || 0 });
+    });
+    return [...map.values()];
+  }
+
+  async function intake(raw){
+    $("#intakeErr").style.display = "none";
+    if(!raw || !raw.length) return;
+    let expanded;
+    try{ expanded = await expandZips(raw); }
+    catch(err){ intakeErr(err.message || String(err)); return; }
+
+    let entries = finalizeEntries(expanded);
+    bigSkipped = entries.filter(e=> e.size > MAX_FILE);
+    entries = entries.filter(e=> e.size <= MAX_FILE);
+
+    if(!entries.length){
+      intakeErr(bigSkipped.length
+        ? "Everything in that upload was over 25 MB, so nothing was added."
+        : "No usable files found in that upload.");
+      return;
+    }
+
+    files = entries;
+    if(mode === "update"){
+      $("#repoName").value = targetRepo;
+    } else {
+      const primary = files.find(f=>f.target==="index.html") || files[0];
+      const base = (primary.target.split("/").pop() || "site").replace(/\.[^.]+$/,"");
+      $("#repoName").value = slug(base);
+    }
+    renderManifest();
+    $("#config").style.display = "block";
+    $("#telemetry").style.display = "none";
+    $("#result").style.display = "none";
+    $("#launchErr").style.display = "none";
+    resetSteps();
+    $("#config").scrollIntoView({behavior:"smooth", block:"nearest"});
+  }
+
+  function slug(s){
+    return s.trim().toLowerCase()
+      .replace(/[^a-z0-9._-]+/g,"-")
+      .replace(/^-+|-+$/g,"")
+      .replace(/-{2,}/g,"-") || "my-site";
+  }
+
+  function renderManifest(){
+    const m = $("#manifest"); m.innerHTML="";
+    files.forEach((f,i)=>{
+      const renamed = f.target !== f.display;
+      const isIndex = f.target.toLowerCase()==="index.html";
+      const row = document.createElement("div");
+      row.className="mrow";
+      row.innerHTML =
+        (renamed
+          ? '<span class="from">'+escapeHtml(f.display)+'</span><span class="arrow">→</span><span class="path index">'+escapeHtml(f.target)+'</span>'
+          : '<span class="path'+(isIndex?' index':'')+'">'+escapeHtml(f.target)+'</span>') +
+        '<span class="msize">'+fmtSize(f.size)+'</span>' +
+        '<button class="rm" title="Remove">×</button>';
+      row.querySelector(".rm").addEventListener("click", ()=>{
+        const remaining = files.filter((_,j)=> j!==i).map(x=>({ path:x.display, file:x.file }));
+        if(!remaining.length){ resetConfig(); return; }
+        files = finalizeEntries(remaining);
+        renderManifest();
+      });
+      m.appendChild(row);
+    });
+
+    const w = [];
+    if(!files.some(f=>f.target.toLowerCase()==="index.html"))
+      w.push("No <b>index.html</b> at the root — the site's landing page will 404 until one exists there.");
+    if(bigSkipped && bigSkipped.length)
+      w.push("Skipped "+bigSkipped.length+" file(s) over 25 MB: "+bigSkipped.map(b=>escapeHtml(b.display)).join(", "));
+    if(mode === "update")
+      w.push("Anything already in the repo that isn't listed here will be <b>kept</b> — this only adds or overwrites these paths.");
+    const warn = $("#manifestWarn");
+    if(w.length){
+      warn.style.display="block";
+      warn.innerHTML = w.map(x=>'<div style="display:flex;gap:8px;margin-top:4px"><span>⚠</span><span>'+x+'</span></div>').join("");
+    } else warn.style.display="none";
+  }
+
+  function escapeHtml(s){ return s.replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+  // ---------- visibility toggle ----------
+  document.querySelectorAll(".toggle button").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      document.querySelectorAll(".toggle button").forEach(x=>x.classList.remove("on"));
+      b.classList.add("on");
+      visibility = b.dataset.vis;
+      $("#visHint").style.display = visibility==="private" ? "block" : "none";
+    });
+  });
+
+  // ---------- steps helpers ----------
+  function resetSteps(){
+    document.querySelectorAll(".step").forEach(s=>{ s.className="step"; });
+    document.querySelectorAll(".detail").forEach(d=>d.textContent="");
+  }
+  const stepEl = k => document.querySelector('.step[data-step="'+k+'"]');
+  function setStep(k, state, detail){
+    const el = stepEl(k);
+    el.classList.remove("active","done","error");
+    if(state) el.classList.add(state);
+    if(detail!=null) el.querySelector('[data-detail="'+k+'"]').textContent = detail;
+  }
+
+  function resetConfig(){
+    files=[]; bigSkipped=[]; $("#config").style.display="none";
+    $("#manifest").innerHTML=""; $("#fileInput").value=""; $("#folderInput").value="";
+  }
+
+  // ---------- Launch ----------
+  $("#launchBtn").addEventListener("click", launch);
+
+  async function launch(){
+    if(busy) return;
+    if(!files.length) return;
+    // update mode uses the exact chosen repo name; new mode slugs the typed name
+    const name = mode === "update" ? targetRepo : slug($("#repoName").value);
+    if(mode !== "update") $("#repoName").value = name;
+    busy = true;
+    $("#launchBtn").disabled = true; $("#launchBtn").textContent = "Launching…";
+    $("#launchErr").style.display="none";
+    $("#telemetry").style.display="block";
+    resetSteps();
+    $("#telemetry").scrollIntoView({behavior:"smooth", block:"nearest"});
+
+    let branch = "main";
+    try{
+      // 1. RESOLVE / CREATE REPO
+      setStep("repo","active");
+      if(mode === "update"){
+        // updating an existing repo — just look up its default branch
+        const info = await gh("/repos/"+user+"/"+name);
+        if(!info.ok) throw await ghError(info, "open "+user+"/"+name);
+        branch = (await info.json()).default_branch || "main";
+        setStep("repo","done","updating "+user+"/"+name);
+      } else {
+        const createRes = await gh("/user/repos", {
+          method:"POST",
+          body: JSON.stringify({ name, private: visibility==="private", auto_init:true,
+            description:"Deployed with Pages Launcher" })
+        });
+        if(createRes.status === 201){
+          branch = (await createRes.json()).default_branch || "main";
+          setStep("repo","done","created "+user+"/"+name);
+          await sleep(700); // let auto_init settle
+        } else if(createRes.status === 422){
+          // already exists — reuse it, we'll update files
+          const info = await gh("/repos/"+user+"/"+name);
+          if(info.ok) branch = (await info.json()).default_branch || "main";
+          setStep("repo","done","using existing "+user+"/"+name);
+        } else {
+          throw await ghError(createRes, "create the repository");
+        }
+      }
+
+      // 2. UPLOAD FILES — one atomic commit via the Git Data API
+      setStep("upload","active","reading "+files.length+" file"+(files.length>1?"s":"")+"…");
+      const committed = await commitBatch(name, branch);
+      setStep("upload","done", committed.count+" file"+(committed.count>1?"s":"")+" + .nojekyll → one commit");
+
+      // 3. ENABLE PAGES
+      setStep("pages","active");
+      const pagesResult = await enablePages(name, branch);
+      setStep("pages","done", (pagesResult==="fixed" ? "fixed source → " : "source: ") + branch + " / (branch build)");
+
+      // 4. LIVE
+      const url = "https://"+user+".github.io/"+name+"/";
+      setStep("live","active");
+      await sleep(400);
+      setStep("live","done", "building…");
+      showResult(url, name, files.map(f=>f.target));
+    }catch(err){
+      // mark the active step as errored
+      const active = document.querySelector(".step.active");
+      if(active) active.classList.replace("active","error");
+      const b = $("#launchErr");
+      b.textContent = err.message || String(err);
+      b.style.display="block";
+    }finally{
+      busy=false;
+      $("#launchBtn").disabled=false; $("#launchBtn").textContent="Launch to Pages";
+    }
+  }
+
+  // Commit every file in `files` (plus .nojekyll) as ONE commit, layered on top
+  // of the branch's current tree so files not in this upload are preserved.
+  async function commitBatch(repo, branch){
+    const base = "/repos/"+user+"/"+repo;
+
+    // resolve the branch ref (retry — a brand-new repo's ref can lag a moment)
+    let refSha = null;
+    for(let a=0; a<5; a++){
+      const ref = await gh(base+"/git/ref/heads/"+encodeURIComponent(branch));
+      if(ref.ok){ refSha = (await ref.json()).object.sha; break; }
+      if(ref.status===404 || ref.status===409){ await sleep(1000); continue; }
+      throw await ghError(ref, "read the "+branch+" branch");
+    }
+    if(!refSha) throw new Error("Couldn't find the "+branch+" branch to commit to. If the repo is brand new, wait a few seconds and try again.");
+
+    // base tree of the latest commit (so untouched files stay put)
+    const cRes = await gh(base+"/git/commits/"+refSha);
+    if(!cRes.ok) throw await ghError(cRes, "read the latest commit");
+    const baseTree = (await cRes.json()).tree.sha;
+
+    // upload each file as a blob (this is where per-file progress happens)
+    const tree = [];
+    for(let i=0;i<files.length;i++){
+      const f = files[i];
+      setStep("upload","active", "uploading "+(i+1)+"/"+files.length+" — "+f.target);
+      const b64 = await fileToBase64(f.file);
+      const blob = await gh(base+"/git/blobs", { method:"POST",
+        body: JSON.stringify({ content:b64, encoding:"base64" }) });
+      if(!blob.ok) throw await ghError(blob, "upload "+f.target);
+      tree.push({ path:f.target, mode:"100644", type:"blob", sha:(await blob.json()).sha });
+    }
+
+    // .nojekyll (empty file) so Pages serves app HTML raw instead of via Jekyll
+    setStep("upload","active", "adding .nojekyll");
+    const nb = await gh(base+"/git/blobs", { method:"POST",
+      body: JSON.stringify({ content:"", encoding:"utf-8" }) });
+    if(nb.ok) tree.push({ path:".nojekyll", mode:"100644", type:"blob", sha:(await nb.json()).sha });
+
+    // build the new tree on top of the existing one
+    setStep("upload","active", "building commit…");
+    const treeRes = await gh(base+"/git/trees", { method:"POST",
+      body: JSON.stringify({ base_tree: baseTree, tree }) });
+    if(!treeRes.ok) throw await ghError(treeRes, "build the file tree");
+    const newTree = (await treeRes.json()).sha;
+
+    const msg = (files.length===1 ? "Deploy "+files[0].target : "Deploy "+files.length+" files")+" via Pages Launcher";
+    const commit = await gh(base+"/git/commits", { method:"POST",
+      body: JSON.stringify({ message:msg, tree:newTree, parents:[refSha] }) });
+    if(!commit.ok) throw await ghError(commit, "create the commit");
+    const newCommit = (await commit.json()).sha;
+
+    const patch = await gh(base+"/git/refs/heads/"+encodeURIComponent(branch), { method:"PATCH",
+      body: JSON.stringify({ sha:newCommit, force:false }) });
+    if(!patch.ok) throw await ghError(patch, "update the "+branch+" branch");
+
+    return { count: files.length };
+  }
+
+  async function enablePages(repo, branch){
+    // build_type "legacy" = serve straight from the branch (Jekyll/plain HTML).
+    // Without this, GitHub can default Pages to "workflow" (Actions); with no
+    // workflow in the repo, nothing ever deploys and the site 404s forever.
+    const payload = JSON.stringify({ build_type:"legacy", source:{ branch, path:"/" } });
+
+    // Try to CREATE the Pages site.
+    let res = await gh("/repos/"+user+"/"+repo+"/pages", { method:"POST", body: payload });
+
+    // Brand-new repo: branch may not be ready for a beat — retry the create once.
+    if(res.status===404){
+      await sleep(1200);
+      res = await gh("/repos/"+user+"/"+repo+"/pages", { method:"POST", body: payload });
+    }
+
+    if(res.status===201) return "created";
+
+    // Pages already existed (409). It may be pointed at the wrong source
+    // (e.g. "GitHub Actions"), so force it back to this branch. PUT returns 204.
+    if(res.status===409){
+      const upd = await gh("/repos/"+user+"/"+repo+"/pages", { method:"PUT", body: payload });
+      if(upd.ok || upd.status===204) return "fixed";
+      throw await ghError(upd, "set the Pages source to the "+branch+" branch");
+    }
+
+    throw await ghError(res, "enable Pages");
+  }
+
+  async function ghError(res, action){
+    let msg = "Couldn't "+action+" (HTTP "+res.status+").";
+    try{
+      const j = await res.json();
+      if(j.message) msg += " GitHub says: "+j.message;
+      if(j.errors && j.errors.length && j.errors[0].message) msg += " — "+j.errors[0].message;
+    }catch(e){}
+    if(res.status===401) msg += "\nYour token was rejected — it may have expired. Try 'Change token'.";
+    if(res.status===403) msg += "\nYour token is missing a needed scope. Creating/updating files needs the 'repo' scope; deleting needs 'delete_repo'.";
+    if(res.status===404 && /Pages/.test(action)) msg += "\nIf this is a private repo, Pages needs GitHub Pro.";
+    if(res.status===413 || res.status===422) msg += "\nThat file may be too large for the API (keep files under ~25 MB).";
+    return new Error(msg);
+  }
+
+  function showResult(url, repo, paths){
+    // reflect the now-live site in the cached repo list
+    if(repoCache){ const c = repoCache.find(r=>r.name===repo); if(c) c.has_pages = true; }
+    $("#againBtn").textContent = "← Back to my sites";
+    $("#liveUrl").href = url; $("#liveUrl").textContent = url;
+    $("#repoLink").href = "https://github.com/"+user+"/"+repo;
+    $("#settingsLink").href = "https://github.com/"+user+"/"+repo+"/settings/pages";
+    // committed-files summary
+    const cl = $("#commitList");
+    if(paths && paths.length){
+      const shown = paths.slice(0, 12).map(escapeHtml).join(", ");
+      const extra = paths.length > 12 ? " +"+(paths.length-12)+" more" : "";
+      cl.innerHTML = "Committed "+paths.length+" file"+(paths.length>1?"s":"")+" in one commit: "+shown+extra+" · plus .nojekyll";
+      cl.style.display = "block";
+    } else cl.style.display = "none";
+    $("#result").style.display="block";
+    $("#result").scrollIntoView({behavior:"smooth", block:"nearest"});
+    $("#openBtn").onclick = ()=> window.open(url, "_blank", "noopener");
+    $("#copyBtn").onclick = ()=>{
+      const done = ()=>{ $("#copyBtn").textContent="Copied"; setTimeout(()=>$("#copyBtn").textContent="Copy",1400); };
+      if(navigator.clipboard) navigator.clipboard.writeText(url).then(done).catch(fallbackCopy);
+      else fallbackCopy();
+      function fallbackCopy(){ const t=document.createElement("textarea"); t.value=url; document.body.appendChild(t); t.select(); try{document.execCommand("copy");}catch(e){} t.remove(); done(); }
+    };
+  }
+
+  $("#againBtn").addEventListener("click", ()=>{
+    showHome();
+    window.scrollTo({top:0, behavior:"smooth"});
+  });
+
+  // ---------- restore session ----------
+  (async function init(){
+    const saved = store.get("pl_token");
+    if(saved){
+      $("#connectBtn").disabled=true; $("#connectBtn").textContent="Reconnecting…";
+      try{ await connect(saved); }
+      catch(e){ store.del("pl_token"); }
+      finally{ $("#connectBtn").disabled=false; $("#connectBtn").textContent="Connect"; }
+    }
+  })();
+})();
+</script>
+</body>
+</html>
