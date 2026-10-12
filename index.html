@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pages Launcher</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0E1116">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Launcher">
 <style>
   :root{
     --ink:#0E1116;
@@ -44,6 +52,10 @@
     display:grid;place-items:center;flex:none;
     box-shadow:0 0 0 1px rgba(255,122,69,0.25), 0 8px 22px -8px rgba(255,122,69,0.6);
   }
+  .install-btn{margin-left:auto;background:var(--ignite);color:#1a0d05;border:none;border-radius:8px;
+    padding:7px 12px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;display:none;}
+  .install-btn:hover{background:#ff8a5c;}
+  @media (display-mode: standalone){ .install-btn{display:none !important;} }
   .brand .mark svg{width:18px;height:18px;display:block;}
   .brand h1{
     font-family:var(--mono);font-size:18px;font-weight:600;letter-spacing:-0.02em;margin:0;
@@ -355,6 +367,7 @@
       </svg>
     </div>
     <h1>Pages&nbsp;Launcher</h1>
+    <button class="install-btn" id="installBtn" title="Install as an app">⬇ Install app</button>
   </div>
   <p class="tagline">Your GitHub Pages sites — open, update, or launch a new one.</p>
 
@@ -565,6 +578,27 @@
 (function(){
   "use strict";
   const API = "https://api.github.com";
+
+  // ---------- Installable app (PWA) ----------
+  if("serviceWorker" in navigator && location.protocol === "https:"){
+    window.addEventListener("load", ()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
+  }
+  let installPrompt = null;
+  window.addEventListener("beforeinstallprompt", e=>{
+    e.preventDefault(); installPrompt = e;
+    const b = document.getElementById("installBtn"); if(b) b.style.display = "inline-block";
+  });
+  window.addEventListener("appinstalled", ()=>{
+    installPrompt = null;
+    const b = document.getElementById("installBtn"); if(b) b.style.display = "none";
+  });
+  document.getElementById("installBtn").addEventListener("click", async ()=>{
+    if(!installPrompt) return;
+    installPrompt.prompt();
+    try{ await installPrompt.userChoice; }catch(e){}
+    installPrompt = null;
+    document.getElementById("installBtn").style.display = "none";
+  });
 
   // ---- tiny storage wrapper (survives artifact preview where localStorage throws) ----
   let mem = {};
