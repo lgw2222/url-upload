@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Pages Launcher</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0E1116">
@@ -31,7 +31,7 @@
     --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
   *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
+  html,body{margin:0;padding:0;overflow-x:hidden;}
   body{
     background:
       radial-gradient(900px 500px at 80% -10%, rgba(255,122,69,0.08), transparent 60%),
@@ -42,7 +42,9 @@
     -webkit-font-smoothing:antialiased;
     line-height:1.5;
   }
-  .wrap{max-width:640px;margin:0 auto;padding:40px 22px 80px;}
+  .wrap{max-width:640px;margin:0 auto;padding:40px 22px 80px;transition:max-width .2s;}
+  body.on-home .wrap{max-width:1180px;}
+  @media (max-width:560px){ .wrap{padding:22px 14px 60px;} .tagline{margin-left:46px;margin-bottom:18px;} }
 
   /* Header */
   .brand{display:flex;align-items:center;gap:12px;margin-bottom:6px;}
@@ -132,7 +134,107 @@
   .tab:hover{color:var(--text);}
   .tab.on{background:var(--surface-2);color:var(--text);}
 
-  /* Repo browser / dashboard */
+
+  /* ===== Tile grid (home) ===== */
+  .home-bar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
+  .home-bar .grow{min-width:150px;}
+  @media (max-width:560px){
+    .home-bar .grow{flex:1 1 100%;}
+    .home-bar #firebaseBtn,.home-bar #newSiteBtn{flex:1;}
+    .sheet-acts{flex-wrap:nowrap;gap:6px;}
+    .sheet-acts .repo-act{padding:9px 10px;}
+    .sheet-acts .repo-act.primary{min-width:0;}
+  }
+  .home-meta{display:flex;align-items:center;gap:10px;margin:0 2px 10px;font-family:var(--mono);font-size:11.5px;color:var(--faint);}
+  .home-meta .spacer{flex:1;}
+  .size-toggle{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:3px;gap:2px;}
+  .size-toggle button{background:none;border:none;color:var(--faint);cursor:pointer;border-radius:5px;padding:4px 7px;display:grid;place-items:center;}
+  .size-toggle button.on{background:var(--surface-2);color:var(--text);}
+  .repolist.grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));max-height:none;overflow:visible;}
+  .repolist.grid.dense{grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:7px;}
+  .repolist.grid .repo-empty{grid-column:1/-1;}
+  .tile{position:relative;background:var(--surface);border:1px solid var(--line-soft);border-radius:14px;
+    display:flex;flex-direction:column;overflow:hidden;cursor:pointer;min-width:0;
+    transition:border-color .12s, transform .08s;}
+  .tile:hover{border-color:var(--line);}
+  .tile:active{transform:scale(.985);}
+  .tile:focus-visible{outline:2px solid var(--ignite);outline-offset:2px;}
+  .tile .face{position:relative;aspect-ratio:2/1;display:grid;place-items:center;
+    background:hsl(var(--h) 34% 17%);border-bottom:1px solid var(--line-soft);overflow:hidden;}
+  .tile .face::before{content:"";position:absolute;inset:0;
+    background:radial-gradient(120% 90% at 0% 0%, hsl(var(--h) 60% 45% / .35), transparent 60%);}
+  .tile .glyph{position:relative;font-family:var(--mono);font-weight:700;font-size:26px;letter-spacing:-0.04em;
+    color:hsl(var(--h) 80% 82%);text-transform:lowercase;}
+  .tile.nopages .face{background:var(--surface-2);}
+  .tile.nopages .face::before{display:none;}
+  .tile.nopages .glyph{color:var(--faint);}
+  .tile .badge{position:absolute;top:7px;left:7px;display:flex;align-items:center;gap:5px;
+    font-family:var(--mono);font-size:10px;color:var(--text);background:rgba(14,17,22,.72);
+    border-radius:20px;padding:2px 7px 2px 6px;backdrop-filter:blur(4px);}
+  .tile .badge .d{width:6px;height:6px;border-radius:50%;background:var(--live);}
+  .tile.nopages .badge .d{background:var(--faint);}
+  .tile .badge.stale{color:#e0a44a;}
+  .tile .lock{position:absolute;top:7px;right:7px;font-family:var(--mono);font-size:9.5px;color:var(--muted);
+    background:rgba(14,17,22,.72);border-radius:20px;padding:2px 7px;}
+  .tile .body{padding:9px 10px 10px;display:flex;flex-direction:column;gap:8px;min-width:0;}
+  .tile .tname{font-family:var(--mono);font-size:13px;color:var(--text);line-height:1.25;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .tile .tacts{display:flex;gap:6px;}
+  .tile .tacts .repo-act{flex:1;padding:6px 4px;text-align:center;font-size:11.5px;}
+  .tile .tacts .repo-act.ico{flex:none;width:32px;display:grid;place-items:center;padding:5px 0;color:var(--muted);}
+  .repolist.grid.dense .tile .face{aspect-ratio:5/4;}
+  .repolist.grid.dense .tile .badge{top:5px;left:5px;font-size:9px;padding:1px 6px 1px 5px;}
+  .repolist.grid.dense .tile .glyph{font-size:20px;}
+  .repolist.grid.dense .tile .body{padding:7px 8px 8px;gap:0;}
+  .repolist.grid.dense .tile .tname{font-size:11px;white-space:normal;word-break:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;min-height:2.5em;}
+  .repolist.grid.dense .tile .tacts{display:none;}
+  .repolist.grid.dense .tile .lock{display:none;}
+
+  /* ===== Preview sheet ===== */
+  .sheet-overlay{position:fixed;inset:0;z-index:40;background:rgba(5,7,10,.72);display:none;
+    align-items:center;justify-content:center;padding:24px;}
+  .sheet-overlay.show{display:flex;}
+  .sheet{background:var(--surface);border:1px solid var(--line);border-radius:16px;width:100%;max-width:1000px;
+    height:min(88vh,900px);display:flex;flex-direction:column;overflow:hidden;
+    animation:sheetIn .18s ease-out;}
+  @keyframes sheetIn{from{opacity:0;transform:translateY(14px) scale(.985);}to{opacity:1;transform:none;}}
+  @media (prefers-reduced-motion: reduce){ .sheet{animation:none;} }
+  .sheet-head{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);flex:none;min-width:0;}
+  .sheet-head .sdot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--live);box-shadow:0 0 0 3px rgba(63,185,80,.18);}
+  .sheet-head .sdot.off{background:var(--faint);box-shadow:none;}
+  .sheet-head .stitle{min-width:0;flex:1;}
+  .sheet-head .sname{font-family:var(--mono);font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sheet-head .surl{font-family:var(--mono);font-size:11px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sheet-x{background:var(--surface-2);border:1px solid var(--line);color:var(--text);border-radius:8px;
+    width:34px;height:34px;cursor:pointer;font-size:18px;line-height:1;flex:none;display:grid;place-items:center;}
+  .sheet-x:hover{border-color:var(--faint);}
+  .sheet-tabs{display:flex;gap:4px;padding:8px 12px 0;flex:none;}
+  .sheet-tabs button{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);
+    font-family:var(--mono);font-size:12.5px;padding:6px 10px 8px;cursor:pointer;}
+  .sheet-tabs button.on{color:var(--text);border-bottom-color:var(--ignite);}
+  .sheet-tabs .sp{flex:1;}
+  .sheet-tabs .mini{border:none;background:none;color:var(--muted);cursor:pointer;font-size:12px;font-family:var(--mono);padding:6px 8px;}
+  .sheet-tabs .mini:hover{color:var(--text);}
+  .sheet-stage{flex:1;position:relative;background:#fff;border-top:1px solid var(--line);min-height:0;}
+  .sheet-stage.files{background:var(--ink);overflow-y:auto;padding:10px;}
+  .sheet-stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff;}
+  .sheet-stage .repo-files{margin:0;}
+  .sheet-empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:20px;
+    background:var(--ink);color:var(--muted);font-size:13px;font-family:var(--mono);}
+  .sheet-load{position:absolute;inset:0;display:grid;place-items:center;background:var(--ink);color:var(--faint);
+    font-family:var(--mono);font-size:12px;pointer-events:none;transition:opacity .2s;}
+  .sheet-acts{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line);flex:none;flex-wrap:wrap;
+    padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px));}
+  .sheet-acts .repo-act{padding:9px 13px;font-size:12.5px;}
+  .sheet-acts .repo-act.primary{flex:1;min-width:110px;}
+  .sheet-acts .ico{display:grid;place-items:center;padding:8px 11px;}
+  @media (max-width:640px){
+    .sheet-overlay{padding:0;align-items:stretch;}
+    .sheet{max-width:none;height:100%;border-radius:0;border:none;
+      padding-top:env(safe-area-inset-top, 0px);}
+  }
+
+  /* Repo browser / dashboard (legacy row styles) */
   .repolist{display:flex;flex-direction:column;gap:6px;max-height:460px;overflow-y:auto;}
   .repo-empty{color:var(--muted);font-size:13px;padding:16px 4px;text-align:center;}
   .repo-row{display:flex;align-items:center;gap:11px;padding:11px 13px;
@@ -396,15 +498,45 @@
     </div>
   </div>
 
-  <!-- HOME: dashboard of all your repos -->
+  <!-- HOME: grid of all your repos -->
   <div id="home" style="display:none">
-    <div class="row" style="margin-bottom:14px;gap:10px">
+    <div class="home-bar">
       <div class="grow"><input type="text" id="repoSearch" placeholder="Search your sites…" autocomplete="off" spellcheck="false"></div>
       <button class="btn btn-ghost icon-only" id="refreshRepos" title="Refresh list">↻</button>
       <button class="btn btn-ghost" id="firebaseBtn" title="See which Firebase projects your sites use">🔥 Firebase</button>
       <button class="btn btn-ignite" id="newSiteBtn">+ New site</button>
     </div>
-    <div id="repoList" class="repolist"><div class="repo-empty">Loading your repositories…</div></div>
+    <div class="home-meta">
+      <span id="repoCount"></span>
+      <span class="spacer"></span>
+      <div class="size-toggle" role="group" aria-label="Tile size">
+        <button id="sizeCozy" title="Bigger tiles with buttons" aria-label="Bigger tiles"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="0" width="6" height="6" rx="1.5"/><rect x="8" y="0" width="6" height="6" rx="1.5"/><rect x="0" y="8" width="6" height="6" rx="1.5"/><rect x="8" y="8" width="6" height="6" rx="1.5"/></svg></button>
+        <button id="sizeDense" title="Smaller tiles, fit more" aria-label="Smaller tiles"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="0" width="3.6" height="3.6" rx="1"/><rect x="5.2" y="0" width="3.6" height="3.6" rx="1"/><rect x="10.4" y="0" width="3.6" height="3.6" rx="1"/><rect x="0" y="5.2" width="3.6" height="3.6" rx="1"/><rect x="5.2" y="5.2" width="3.6" height="3.6" rx="1"/><rect x="10.4" y="5.2" width="3.6" height="3.6" rx="1"/><rect x="0" y="10.4" width="3.6" height="3.6" rx="1"/><rect x="5.2" y="10.4" width="3.6" height="3.6" rx="1"/><rect x="10.4" y="10.4" width="3.6" height="3.6" rx="1"/></svg></button>
+      </div>
+    </div>
+    <div id="repoList" class="repolist grid"><div class="repo-empty">Loading your repositories…</div></div>
+  </div>
+
+  <!-- PREVIEW SHEET (tap a tile) -->
+  <div class="sheet-overlay" id="sheet" aria-hidden="true">
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetName">
+      <div class="sheet-head">
+        <span class="sdot" id="sheetDot"></span>
+        <div class="stitle">
+          <div class="sname" id="sheetName"></div>
+          <div class="surl" id="sheetUrl"></div>
+        </div>
+        <button class="sheet-x" id="sheetClose" title="Close" aria-label="Close preview">×</button>
+      </div>
+      <div class="sheet-tabs">
+        <button id="tabPreview" class="on">Preview</button>
+        <button id="tabFiles">Files</button>
+        <span class="sp"></span>
+        <button class="mini" id="sheetReload" title="Reload preview">↻ Reload</button>
+      </div>
+      <div class="sheet-stage" id="sheetStage"></div>
+      <div class="sheet-acts" id="sheetActs"></div>
+    </div>
   </div>
 
   <!-- FIREBASE VIEW -->
@@ -692,6 +824,7 @@
     $("#dropzone").style.display="none";
     $("#pickRow").style.display="none";
     $("#setup").style.display="block";
+    closeSheet(); document.body.classList.remove("on-home");
     resetConfig();
     $("#result").style.display="none";
     $("#tokenInput").value="";
@@ -708,10 +841,13 @@
     $("#fbView").style.display = "none";
     resetConfig();
     $("#home").style.display = "block";
+    document.body.classList.add("on-home");
     loadRepos();
   }
 
   function enterDeploy(){
+    closeSheet();
+    document.body.classList.remove("on-home");
     $("#home").style.display = "none";
     $("#fbView").style.display = "none";
     $("#deployBanner").style.display = "block";
@@ -769,79 +905,182 @@
     }
   }
 
+  // ---------- Tile grid ----------
+  let tileSize = store.get("pl_tiles") === "dense" ? "dense" : "cozy";
+  function applyTileSize(){
+    $("#repoList").classList.toggle("dense", tileSize === "dense");
+    $("#sizeCozy").classList.toggle("on", tileSize === "cozy");
+    $("#sizeDense").classList.toggle("on", tileSize === "dense");
+  }
+  $("#sizeCozy").addEventListener("click", ()=>{ tileSize="cozy"; store.set("pl_tiles","cozy"); applyTileSize(); });
+  $("#sizeDense").addEventListener("click", ()=>{ tileSize="dense"; store.set("pl_tiles","dense"); applyTileSize(); });
+  applyTileSize();
+
+  function hueFor(name){ let h=0; for(const c of name) h=(h*31 + c.charCodeAt(0)) >>> 0; return h % 360; }
+  function glyphFor(name){
+    const parts = name.replace(/\.github\.io$/i,"").split(/[-_.\s]+/).filter(Boolean);
+    if(parts.length >= 2) return (parts[0][0] + parts[1][0]).toLowerCase();
+    return (parts[0]||name).slice(0,2).toLowerCase();
+  }
+  const openSvg = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>';
+
   function renderRepoList(repos){
     const q = ($("#repoSearch").value||"").trim().toLowerCase();
     const filtered = repos.filter(r=> !q || r.name.toLowerCase().includes(q));
     // live sites first, then the rest (API already returns most-recently-updated first)
     filtered.sort((a,b)=> (b.has_pages?1:0) - (a.has_pages?1:0));
     const list = $("#repoList");
+    const live = repos.filter(r=>r.has_pages).length;
+    $("#repoCount").textContent = q
+      ? filtered.length + " of " + repos.length + " repos"
+      : repos.length + " repos, " + live + " live";
+    syncSheet();
     if(!filtered.length){ list.innerHTML = '<div class="repo-empty">No repositories match that.</div>'; return; }
     list.innerHTML = "";
     filtered.forEach(r=>{
-      const url = "https://"+user+".github.io/"+r.name+"/";
-
-      const item = document.createElement("div");
-      item.className = "repo-item";
-
+      const url = pagesUrlFor(r.name);
       const when = r.pushed_at || r.updated_at;
       const rel = relTime(when);
       const stale = when && (Date.now() - new Date(when).getTime()) > 1000*60*60*24*180; // 6 months
-      const row = document.createElement("div");
-      row.className = "repo-row";
-      row.title = r.has_pages ? url : (user+"/"+r.name);
-      row.innerHTML =
-        '<span class="chev">▶</span>' +
-        '<span class="rlive '+(r.has_pages?"on":"off")+'" title="'+(r.has_pages?"Pages live":"No Pages yet")+'"></span>' +
-        '<span class="rname">'+escapeHtml(r.name)+'</span>' +
-        (r.private ? '<span class="rpriv">private</span>' : '') +
-        '<span class="rspacer"></span>' +
-        (rel ? '<span class="rtime'+(stale?' stale':'')+'" title="last pushed '+escapeHtml((when||"").slice(0,10))+'">'+rel+'</span>' : '') +
-        (r.has_pages ? '<span class="rurl">'+escapeHtml(url)+'</span>' : '<span class="rurl">not a site yet</span>');
 
-      // action buttons (stop propagation so they don't toggle the file view)
-      const ghBtn = document.createElement("button");
-      ghBtn.className = "repo-act ghbtn";
-      ghBtn.title = "View repository on GitHub";
-      ghBtn.innerHTML = ghMarkSvg;
-      ghBtn.addEventListener("click", e=>{ e.stopPropagation(); window.open("https://github.com/"+user+"/"+r.name, "_blank", "noopener"); });
-      row.appendChild(ghBtn);
+      const tile = document.createElement("div");
+      tile.className = "tile" + (r.has_pages ? "" : " nopages");
+      tile.tabIndex = 0;
+      tile.setAttribute("role","button");
+      tile.title = r.has_pages ? url : (user+"/"+r.name+" — not a site yet");
+      tile.style.setProperty("--h", hueFor(r.name));
+      tile.innerHTML =
+        '<div class="face">' +
+          '<span class="glyph">'+escapeHtml(glyphFor(r.name))+'</span>' +
+          '<span class="badge'+(stale?' stale':'')+'" title="last pushed '+escapeHtml((when||"").slice(0,10))+'"><span class="d"></span>'+(rel||"—")+'</span>' +
+          (r.private ? '<span class="lock">private</span>' : '') +
+        '</div>' +
+        '<div class="body"><div class="tname">'+escapeHtml(r.name)+'</div><div class="tacts"></div></div>';
 
+      const acts = tile.querySelector(".tacts");
       if(r.has_pages){
         const open = document.createElement("button");
-        open.className = "repo-act"; open.textContent = "Open ↗";
+        open.className = "repo-act ico"; open.title = "Open site"; open.setAttribute("aria-label","Open "+r.name); open.innerHTML = openSvg;
         open.addEventListener("click", e=>{ e.stopPropagation(); window.open(url, "_blank", "noopener"); });
-        row.appendChild(open);
+        acts.appendChild(open);
       }
       const upd = document.createElement("button");
       upd.className = "repo-act primary"; upd.textContent = r.has_pages ? "Update" : "Publish";
       upd.addEventListener("click", e=>{ e.stopPropagation(); startUpdate(r); });
-      row.appendChild(upd);
+      acts.appendChild(upd);
 
-      const ren = document.createElement("button");
-      ren.className = "repo-act renbtn"; ren.title = "Rename this repository"; ren.innerHTML = pencilSvg;
-      ren.addEventListener("click", e=>{ e.stopPropagation(); askRenameRepo(r); });
-      row.appendChild(ren);
+      tile.addEventListener("click", ()=> openSheet(r));
+      tile.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); openSheet(r); } });
+      list.appendChild(tile);
+    });
+  }
 
-      const del = document.createElement("button");
-      del.className = "repo-act danger"; del.title = "Delete this repository"; del.innerHTML = trashSvg;
-      del.addEventListener("click", e=>{ e.stopPropagation(); askDeleteRepo(r.name); });
-      row.appendChild(del);
+  // ---------- Preview sheet ----------
+  let sheetRepo = null, sheetTab = "preview", sheetHistory = false;
 
-      // expandable file panel
+  function openSheet(r){
+    sheetRepo = r;
+    sheetTab = r.has_pages ? "preview" : "files";
+    $("#sheet").classList.add("show");
+    $("#sheet").setAttribute("aria-hidden","false");
+    document.body.style.overflow = "hidden";
+    fillSheetHead();
+    renderSheetActs();
+    renderSheetStage();
+    // phone back button closes the preview instead of leaving the app
+    if(!sheetHistory){ try{ history.pushState({plSheet:1}, ""); sheetHistory = true; }catch(e){} }
+  }
+  function closeSheet(fromPop){
+    if(!sheetRepo && !$("#sheet").classList.contains("show")) return;
+    sheetRepo = null;
+    $("#sheet").classList.remove("show");
+    $("#sheet").setAttribute("aria-hidden","true");
+    $("#sheetStage").innerHTML = "";
+    document.body.style.overflow = "";
+    if(sheetHistory){ sheetHistory = false; if(!fromPop){ try{ history.back(); }catch(e){} } }
+  }
+  window.addEventListener("popstate", ()=>{ if(sheetHistory){ sheetHistory = false; closeSheet(true); } });
+  document.addEventListener("keydown", e=>{
+    if(e.key==="Escape" && sheetRepo && $("#renameModal").style.display!=="grid" && $("#confirmModal").style.display!=="grid") closeSheet();
+  });
+  $("#sheetClose").addEventListener("click", ()=> closeSheet());
+  $("#sheet").addEventListener("click", e=>{ if(e.target.id==="sheet") closeSheet(); });
+  $("#tabPreview").addEventListener("click", ()=>{ sheetTab="preview"; renderSheetStage(); });
+  $("#tabFiles").addEventListener("click", ()=>{ sheetTab="files"; renderSheetStage(); });
+  $("#sheetReload").addEventListener("click", ()=>{ if(sheetTab==="preview") renderSheetStage(); });
+
+  function fillSheetHead(){
+    const r = sheetRepo; if(!r) return;
+    $("#sheetName").textContent = r.name + (r.private ? "  (private)" : "");
+    $("#sheetUrl").textContent = r.has_pages ? pagesUrlFor(r.name) : user+"/"+r.name+" · not a site yet";
+    $("#sheetDot").classList.toggle("off", !r.has_pages);
+  }
+
+  function renderSheetStage(){
+    const r = sheetRepo; if(!r) return;
+    const stage = $("#sheetStage");
+    $("#tabPreview").classList.toggle("on", sheetTab==="preview");
+    $("#tabFiles").classList.toggle("on", sheetTab==="files");
+    $("#sheetReload").style.visibility = sheetTab==="preview" && r.has_pages ? "visible" : "hidden";
+    stage.innerHTML = "";
+    stage.classList.toggle("files", sheetTab==="files");
+    if(sheetTab==="files"){
       const panel = document.createElement("div");
       panel.className = "repo-files";
-      panel.style.display = "none";
+      stage.appendChild(panel);
+      browseFiles(r, "", panel);
+      return;
+    }
+    if(!r.has_pages){
+      stage.innerHTML = '<div class="sheet-empty">No Pages site yet.<br>Hit Publish to put it online.</div>';
+      return;
+    }
+    const load = document.createElement("div");
+    load.className = "sheet-load"; load.textContent = "Loading preview…";
+    const fr = document.createElement("iframe");
+    fr.title = "Preview of " + r.name;
+    fr.setAttribute("allow", "clipboard-write; fullscreen; autoplay");
+    fr.addEventListener("load", ()=>{ load.style.opacity = "0"; });
+    fr.src = pagesUrlFor(r.name) + "?preview=" + Date.now(); // skip stale cache so fresh updates show
+    stage.appendChild(fr);
+    stage.appendChild(load);
+  }
 
-      row.addEventListener("click", ()=>{
-        const isOpen = item.classList.toggle("open");
-        panel.style.display = isOpen ? "block" : "none";
-        if(isOpen && !panel.dataset.loaded){ browseFiles(r, "", panel); }
-      });
+  function renderSheetActs(){
+    const r = sheetRepo; if(!r) return;
+    const box = $("#sheetActs");
+    box.innerHTML = "";
+    const url = pagesUrlFor(r.name);
+    const upd = mkBtn(r.has_pages ? "Update" : "Publish", "repo-act primary", ()=>{ const rr=r; closeSheet(); startUpdate(rr); });
+    box.appendChild(upd);
+    if(r.has_pages){
+      const op = mkBtn("", "repo-act ico", ()=> window.open(url, "_blank", "noopener")); op.innerHTML = openSvg; op.title = "Open site"; op.setAttribute("aria-label","Open site"); box.appendChild(op);
+      box.appendChild(mkBtn("Copy", "repo-act", e=> copyText(url, e.currentTarget)));
+    }
+    const gh = document.createElement("button");
+    gh.className = "repo-act ico"; gh.title = "View repository on GitHub"; gh.setAttribute("aria-label","GitHub"); gh.innerHTML = ghMarkSvg;
+    gh.addEventListener("click", ()=> window.open("https://github.com/"+user+"/"+r.name, "_blank", "noopener"));
+    box.appendChild(gh);
+    const ren = document.createElement("button");
+    ren.className = "repo-act ico"; ren.title = "Rename this repository"; ren.setAttribute("aria-label","Rename"); ren.innerHTML = pencilSvg;
+    ren.addEventListener("click", ()=> askRenameRepo(r));
+    box.appendChild(ren);
+    const del = document.createElement("button");
+    del.className = "repo-act ico danger"; del.title = "Delete this repository"; del.setAttribute("aria-label","Delete"); del.innerHTML = trashSvg;
+    del.addEventListener("click", ()=> askDeleteRepo(r.name));
+    box.appendChild(del);
+  }
 
-      item.appendChild(row);
-      item.appendChild(panel);
-      list.appendChild(item);
-    });
+  // keep the open sheet in step after a rename / delete / refresh
+  function syncSheet(){
+    if(!sheetRepo || !repoCache) return;
+    const fresh = repoCache.find(x => x.id === sheetRepo.id);
+    if(!fresh){ closeSheet(); return; }
+    const renamed = fresh.name !== sheetRepo.name;
+    sheetRepo = fresh;
+    fillSheetHead();
+    renderSheetActs();
+    if(renamed) renderSheetStage();
   }
 
   // ---------- Repo file browser ----------
@@ -1090,6 +1329,8 @@
   let fbScanned = null; // cache of last scan
 
   function showFirebase(){
+    closeSheet();
+    document.body.classList.remove("on-home");
     $("#home").style.display = "none";
     $("#deployBanner").style.display = "none";
     $("#dropzone").style.display = "none";
